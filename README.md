@@ -1,2 +1,2 @@
-# cmdbench
-public repos of the CMDBench paper
+# CMDBench
+The public repos of the CMDBench paper
