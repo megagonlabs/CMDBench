@@ -1,0 +1,24 @@
+services:
+    cmdbench:
+        container_name: cmdbench
+        build: .
+        working_dir: /cmdbench
+        restart: always
+        depends_on:
+            - postgres
+        environment:
+            PGHOST: postgres
+            PGUSER: $PGUSER
+            PGDATABASE: $PGDATABASE
+
+    postgres:
+        image: postgres:16.3
+        restart: always
+        volumes:
+            - ./sql:/docker-entrypoint-initdb.d
+        ports:
+            - 6543:5432
+        environment:
+            POSTGRES_USER: $PGUSER
+            POSTGRES_DB: $PGDATABASE
+            POSTGRES_HOST_AUTH_METHOD: trust
