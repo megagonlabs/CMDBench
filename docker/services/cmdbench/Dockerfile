@@ -7,6 +7,7 @@ RUN apt update && \
     curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg && \
     apt update && \
     apt -y install postgresql-16 postgresql-contrib-16 libpq-dev
-COPY ./requirements.txt /cmdbench/requirements.txt
+COPY docker/services/cmdbench .
+COPY src ./src/
+COPY requirements.txt ./
 RUN pip3 install --break-system-packages -r requirements.txt
-COPY . /cmdbench

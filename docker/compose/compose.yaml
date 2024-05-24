@@ -1,7 +1,9 @@
 services:
     cmdbench:
         container_name: cmdbench
-        build: .
+        build:
+            context: ../../
+            dockerfile: ./docker/services/cmdbench/Dockerfile
         working_dir: /cmdbench
         restart: always
         depends_on:
@@ -10,12 +12,13 @@ services:
             PGHOST: postgres
             PGUSER: $PGUSER
             PGDATABASE: $PGDATABASE
+        command: bash -c "bash ./scripts/wait-for-postgres.sh && pytest"
 
     postgres:
         image: postgres:16.3
         restart: always
         volumes:
-            - ./sql:/docker-entrypoint-initdb.d
+            - ../services/postgres/sql:/docker-entrypoint-initdb.d
         ports:
             - 6543:5432
         environment:

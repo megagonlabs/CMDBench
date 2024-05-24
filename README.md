@@ -1,14 +1,13 @@
 # CMDBench
 The public repos of the CMDBench paper
 
-## start the dockers and gte access to the database
+## start the dockers and get access to the database
 ```
-(base) aaron@ip-10-0-158-213:~/code/cmdbench$ docker compose run --rm cmdbench
+(base) aaron@ip-10-0-158-213:~/code/cmdbench$ docker compose -f docker/compose/compose.yaml run --rm cmdbench bash
 [+] Creating 1/0
- ✔ Container cmdbench-postgres-1  Running                             0.0s 
-root@79ea19764de4:/cmdbench# ls
-Dockerfile  README.md     main.py           sql
-LICENSE     compose.yaml  requirements.txt  wait-for-postgres.sh
+ ✔ Container compose-postgres-1  Created
+[+] Running 1/1
+ ✔ Container compose-postgres-1  Started
 root@79ea19764de4:/cmdbench# psql -U megagon cmdbench
 psql (16.3 (Ubuntu 16.3-1.pgdg24.04+1))
 Type "help" for help.
@@ -42,7 +41,7 @@ cmdbench=# SELECT id, page_title, section_title, caption FROM metadata.nba_conte
 
 cmdbench=# 
 \q
-root@79ea19764de4:/cmdbench# python main.py 
+root@79ea19764de4:/cmdbench# python src/table/test_postgres_select.py
 Player: Quincy Acy
 Player: Hassan Adams
 Player: Alexis Ajinça

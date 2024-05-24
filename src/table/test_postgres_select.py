@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import create_engine, text
 
-if __name__ == '__main__':
+def test_postgres_select_nba_wikisql():
     user = os.getenv('PGUSER')
     host = os.getenv('PGHOST')
     db = os.getenv('PGDATABASE')
@@ -12,3 +12,8 @@ if __name__ == '__main__':
         result = connection.execute(text(sql))
         for row in result:
             print("Player:", row.player)
+            assert isinstance(row.player, str)
+            assert len(row.player) > 0
+
+if __name__ == "__main__":
+    test_postgres_select_nba_wikisql()
