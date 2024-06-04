@@ -5,23 +5,23 @@ services:
             context: ../../
             dockerfile: ./docker/services/cmdbench/Dockerfile
         working_dir: /cmdbench
-        restart: always
         depends_on:
             - postgres
         environment:
             PGHOST: postgres
             PGUSER: $PGUSER
-            PGDATABASE: $PGDATABASE
-        command: bash -c "bash ./scripts/wait-for-postgres.sh && pytest"
+            PGDATABASE_NBA: $PGDATABASE_NBA
+        command: bash -c "bash ./scripts/wait-for-postgres.sh pytest"
 
     postgres:
         image: postgres:16.3
-        restart: always
         volumes:
-            - ../services/postgres/sql:/docker-entrypoint-initdb.d
+            - ../services/postgres/sh:/docker-entrypoint-initdb.d
+            - ../services/postgres/sql:/init
         ports:
-            - 6543:5432
+            - 6543:5432 # to allow connection to Postgres outside of the container
         environment:
             POSTGRES_USER: $PGUSER
-            POSTGRES_DB: $PGDATABASE
             POSTGRES_HOST_AUTH_METHOD: trust
+            PGUSER: $PGUSER
+            PGDATABASE_NBA: $PGDATABASE_NBA

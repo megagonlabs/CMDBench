@@ -4,12 +4,13 @@ from sqlalchemy import create_engine, text
 def test_postgres_select_nba_wikisql():
     user = os.getenv('PGUSER')
     host = os.getenv('PGHOST')
-    db = os.getenv('PGDATABASE')
+    db = os.getenv('PGDATABASE_NBA')
     conn_str = f'postgresql+psycopg://{user}@{host}/{db}'
     engine = create_engine(conn_str)
     with engine.connect() as connection:
         sql = "SELECT player FROM nba_wikisql.t_1_10015132_1 LIMIT 3"
         result = connection.execute(text(sql))
+        print()
         for row in result:
             print("Player:", row.player)
             assert isinstance(row.player, str)
