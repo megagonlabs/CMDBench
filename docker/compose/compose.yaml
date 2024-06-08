@@ -25,3 +25,12 @@ services:
             POSTGRES_HOST_AUTH_METHOD: trust
             PGUSER: $PGUSER
             PGDATABASE_NBA: $PGDATABASE_NBA
+
+    neo4j:
+        image: neo4j:5.20.0-community
+        ports:
+            - 7687:7687
+            - 7474:7474
+        environment:
+            NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+            NEO4J_AUTH: $NEO4J_USER/$NEO4J_PASSWORD
