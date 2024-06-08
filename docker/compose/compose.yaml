@@ -41,7 +41,7 @@ services:
     mongo:
         image: mongo:5.0.27
         ports:
-          - "27017:27017"
+          - 27017:27017
         command: ["mongod", "--noauth"]
         volumes:
           - ../services/mongo/sh:/docker-entrypoint-initdb.d
