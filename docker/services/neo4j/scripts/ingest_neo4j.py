@@ -196,6 +196,7 @@ def main():
         overwrite=args.overwrite
     )
     importer.ingest(args.csv_dir)
+    print("Data imported successfully.")
 
 
 if __name__ == "__main__":

@@ -22,7 +22,5 @@ RUN python3 -m pip install -r repo/requirements.txt
 RUN chmod +x repo/scripts/entrypoint.sh
 
 # Keep the original CMD or ENTRYPOINT of the base image
-#CMD ["python3", "repo/scripts/ingest_neo4j.py", "--csv_dir", "repo/nba_v3/"]
-
 ENTRYPOINT ["repo/scripts/entrypoint.sh"]
 CMD ["neo4j"]
