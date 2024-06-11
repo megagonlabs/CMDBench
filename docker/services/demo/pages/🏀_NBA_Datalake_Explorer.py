@@ -265,7 +265,7 @@ def datalake_browser(args):
         if graph_search_mode == 'Subj. only':
             graph_search_mode = 'Subject only'
 
-        db_name = st.selectbox('Select database', ['nba-datalake', 'nba-datalake-v2'])
+        db_name = st.selectbox('Select database', ['nba-datalake',])
 
         examples = [
             '1963–64 Boston Celtics season',
