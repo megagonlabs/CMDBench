@@ -1,0 +1,6 @@
+streamlit
+streamlit_code_editor
+pymongo
+neo4j
+graphviz
+pandas
