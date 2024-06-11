@@ -1,4 +1,20 @@
 services:
+    demo:
+        container_name: demo
+        build:
+            context: ../../
+            dockerfile: ./docker/services/demo/Dockerfile
+        depends_on:
+            - postgres
+            - neo4j
+            - mongo
+        ports:
+            - 8501:8501
+        environment:
+            PGHOST: postgres
+            PGUSER: $PGUSER
+            PGDATABASE_NBA: $PGDATABASE_NBA
+
     cmdbench:
         container_name: cmdbench
         build:
