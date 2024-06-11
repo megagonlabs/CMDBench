@@ -1,68 +1,64 @@
 services:
-    demo:
-        container_name: demo
-        build:
-            context: ../../
-            dockerfile: ./docker/services/demo/Dockerfile
-        depends_on:
-            - postgres
-            - neo4j
-            - mongo
-        ports:
-            - 8501:8501
-        volumes:
-            - ../services/demo:/app
-        environment:
-            NEO4J_USERNAME: $NEO4J_USERNAME
-            NEO4J_PASSWORD: $NEO4J_PASSWORD
-            PGHOST: postgres
-            PGUSER: $PGUSER
-            PGDATABASE_NBA: $PGDATABASE_NBA
+  demo:
+    container_name: demo
+    build:
+      context: ../../
+      dockerfile: ./docker/services/demo/Dockerfile
+    depends_on:
+      - postgres
+      - neo4j
+      - mongo
+    ports:
+      - 8501:8501
+    environment:
+      NEO4J_USERNAME: $NEO4J_USERNAME
+      NEO4J_PASSWORD: $NEO4J_PASSWORD
+      PGUSER: $PGUSER
 
-    cmdbench:
-        container_name: cmdbench
-        build:
-            context: ../../
-            dockerfile: ./docker/services/cmdbench/Dockerfile
-        working_dir: /cmdbench
-        depends_on:
-            - postgres
-        environment:
-            PGHOST: postgres
-            PGUSER: $PGUSER
-            PGDATABASE_NBA: $PGDATABASE_NBA
-        command: bash -c "bash ./scripts/wait-for-postgres.sh pytest"
+  postgres:
+    image: postgres:16.3
+    volumes:
+      - ../services/postgres/sh:/docker-entrypoint-initdb.d
+      - ../services/postgres/sql:/init
+    ports:
+      - 5432:5432 # to allow connection to Postgres outside of the container
+    environment:
+      POSTGRES_USER: $PGUSER
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGUSER: $PGUSER
+      PGDATABASE_NBA: $PGDATABASE_NBA
 
-    postgres:
-        image: postgres:16.3
-        volumes:
-            - ../services/postgres/sh:/docker-entrypoint-initdb.d
-            - ../services/postgres/sql:/init
-        ports:
-            - 5432:5432 # to allow connection to Postgres outside of the container
-        environment:
-            POSTGRES_USER: $PGUSER
-            POSTGRES_HOST_AUTH_METHOD: trust
-            PGUSER: $PGUSER
-            PGDATABASE_NBA: $PGDATABASE_NBA
+  neo4j:
+    container_name: neo4j
+    build:
+      context: ../../
+      dockerfile: ./docker/services/neo4j/Dockerfile
+    ports:
+      - 7687:7687
+      - 7474:7474
+    environment:
+      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      NEO4J_AUTH: $NEO4J_USERNAME/$NEO4J_PASSWORD
 
-    neo4j:
-        container_name: neo4j
-        build:
-            context: ../../
-            dockerfile: ./docker/services/neo4j/Dockerfile
-        ports:
-            - 7687:7687
-            - 7474:7474
-        environment:
-            NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
-            NEO4J_AUTH: $NEO4J_USERNAME/$NEO4J_PASSWORD
+  mongo:
+    image: mongo:5.0.27
+    ports:
+      - 27017:27017
+    command: [ "mongod", "--noauth" ]
+    volumes:
+      - ../services/mongo/sh:/docker-entrypoint-initdb.d
+      - ../services/mongo/data:/init
 
-    mongo:
-        image: mongo:5.0.27
-        ports:
-          - 27017:27017
-        command: ["mongod", "--noauth"]
-        volumes:
-          - ../services/mongo/sh:/docker-entrypoint-initdb.d
-          - ../services/mongo/data:/init
+  #    cmdbench:
+  #        container_name: cmdbench
+  #        build:
+  #            context: ../../
+  #            dockerfile: ./docker/services/cmdbench/Dockerfile
+  #        working_dir: /cmdbench
+  #        depends_on:
+  #            - postgres
+  #        environment:
+  #            PGHOST: postgres
+  #            PGUSER: $PGUSER
+  #            PGDATABASE_NBA: $PGDATABASE_NBA
+  #        command: bash -c "bash ./scripts/wait-for-postgres.sh pytest"

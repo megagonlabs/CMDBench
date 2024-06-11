@@ -1,3 +1,7 @@
+llama-index==0.10.44
+llama-index-llms-openai==0.1.22
+llama-index-graph-stores-neo4j==0.2.4
+llama-index-embeddings-huggingface==0.2.1
 streamlit
 streamlit_code_editor
 streamlit-extras
@@ -5,10 +9,6 @@ pymongo
 neo4j
 graphviz
 pandas
-llama-index
-llama-index-llms-openai
-llama-index-graph-stores-neo4j
-llama-index-embeddings-huggingface
 psycopg2-binary
 psycopg[binary,pool]
 sql-metadata
