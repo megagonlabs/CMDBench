@@ -355,8 +355,8 @@ def datalake_browser(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mongodb_url', default='mongodb://localhost:27018/admin')
-    parser.add_argument('--neo4j_url', default='bolt://localhost:7687')
+    parser.add_argument('--mongodb_url', default='mongodb://mongo:27017')
+    parser.add_argument('--neo4j_url', default='bolt://neo4j:7687')
     args = parser.parse_args()
     logger.info(args)
     logger.info('')

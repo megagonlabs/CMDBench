@@ -1,14 +1,15 @@
 import streamlit as st
+from streamlit_extras.stylable_container import stylable_container
 import time
-from llama_index.core.tools import QueryEngineTool
+from llama_index.core.tools import QueryEngineTool, RetrieverTool
 from llama_index.core import StorageContext, Settings, QueryBundle
 from llama_index.llms.openai import OpenAI
 from llama_index.core.query_engine import KnowledgeGraphQueryEngine
-from llama_index.core.prompts.base import PromptTemplate
+from llama_index.core.prompts.base import PromptTemplate, PromptType
 from llama_index.graph_stores.neo4j import Neo4jGraphStore
-from llama_index.core.schema import NodeWithScore, TextNode
-from llama_index.llms.openai_like import OpenAILike
+from llama_index.core.schema import NodeWithScore, TextNode, MetadataMode
 from llama_index.core import StorageContext, Settings, Document, VectorStoreIndex, load_index_from_storage
+from llama_index.core.postprocessor.types import BaseNodePostprocessor
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.schema import TextNode, QueryType
 from llama_index.core.callbacks.schema import CBEventType, EventPayload
@@ -19,6 +20,11 @@ from llama_index.retrievers.bm25 import BM25Retriever
 from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.llms.openai import OpenAI
 from llama_index.core.query_engine import RouterQueryEngine
+from llama_index.core.response_synthesizers import (
+    BaseSynthesizer,
+    ResponseMode,
+    get_response_synthesizer,
+)
 from llama_index.core import SQLDatabase, Settings, VectorStoreIndex
 from llama_index.core.objects import SQLTableNodeMapping, ObjectIndex, SQLTableSchema
 from llama_index.core.indices.struct_store import SQLTableRetrieverQueryEngine
@@ -26,6 +32,7 @@ from llama_index.core.selectors import (
     PydanticMultiSelector,
     PydanticSingleSelector,
 )
+from llama_index.core.llms.llm import LLM
 from llama_index.core.tools.types import ToolMetadata
 from llama_index.core.base.base_selector import (
     BaseSelector,
@@ -33,6 +40,14 @@ from llama_index.core.base.base_selector import (
     SelectorResult,
     SingleSelection,
 )
+from llama_index.core.service_context import ServiceContext
+from llama_index.core.settings import (
+    Settings,
+    callback_manager_from_settings_or_context,
+    llm_from_settings_or_context,
+)
+from llama_index.core.retrievers import RouterRetriever
+from llama_index.core.base.base_retriever import BaseRetriever
 from llama_index.core.indices.struct_store.sql_retriever import SQLRetriever, NLSQLRetriever, DefaultSQLParser
 from sqlalchemy import create_engine
 import pandas as pd
@@ -44,7 +59,7 @@ import os
 import re
 import logging
 import warnings
-from typing import List, Any, Dict, Tuple, Optional, Sequence
+from typing import List, Any, Dict, Tuple, Optional, Sequence, Union
 import sys
 
 sys.path.append('.')
@@ -139,7 +154,9 @@ def patch_NLSQLRetriever():
                 retrieved_nodes, metadata = self._sql_retriever.retrieve_with_metadata(
                     sql_query_str
                 )
-                retrieved_nodes[0].metadata["retrieved_table_names"] = retrieved_tables
+                retrieved_nodes[0].node.metadata["table_description"] = table_desc_str
+                retrieved_nodes[0].node.metadata["retrieved_table_names"] = retrieved_tables
+                retrieved_nodes[0].node.excluded_llm_metadata_keys.append("retrieved_table_names")
             except BaseException as e:
                 # if handle_sql_errors is True, then return error message
                 if self._handle_sql_errors:
@@ -149,15 +166,50 @@ def patch_NLSQLRetriever():
                     metadata = {}
                 else:
                     raise
-
         return retrieved_nodes, {"sql_query": sql_query_str, **metadata}
 
     NLSQLRetriever.retrieve_with_metadata = retrieve_with_metadata
 
 
+def patch_RouterRetriever():
+    def _retrieve(self, query_bundle: QueryBundle) -> List[NodeWithScore]:
+        with self.callback_manager.event(
+                CBEventType.RETRIEVE,
+                payload={EventPayload.QUERY_STR: query_bundle.query_str},
+        ) as query_event:
+            result = self._selector.select(self._metadatas, query_bundle)
+            self.selector_result_ = result
+
+            if len(result.inds) > 1:
+                retrieved_results = {}
+                for i, engine_ind in enumerate(result.inds):
+                    logger.info(
+                        f"Selecting retriever {engine_ind}: " f"{result.reasons[i]}."
+                    )
+                    selected_retriever = self._retrievers[engine_ind]
+                    cur_results = selected_retriever.retrieve(query_bundle)
+                    retrieved_results.update({n.node.node_id: n for n in cur_results})
+            else:
+                try:
+                    selected_retriever = self._retrievers[result.ind]
+                    logger.info(f"Selecting retriever {result.ind}: {result.reason}.")
+                except ValueError as e:
+                    raise ValueError("Failed to select retriever") from e
+
+                cur_results = selected_retriever.retrieve(query_bundle)
+                retrieved_results = {n.node.node_id: n for n in cur_results}
+
+            query_event.on_end(payload={EventPayload.NODES: retrieved_results.values()})
+
+        return list(retrieved_results.values())
+
+    RouterRetriever._retrieve = _retrieve
+
+
 patch_DefaultSQLParser()
 patch_SQLRetriever()
 patch_NLSQLRetriever()
+patch_RouterRetriever()
 
 
 class ProvenanceGraph(BaseModel):
@@ -199,6 +251,7 @@ class DiscoveryResults(BaseModel):
     provenance_graph: Optional[ProvenanceGraph]
     provenance_doc: Optional[ProvenanceDoc]
     provenance_table: Optional[ProvenanceTable]
+    cited_provenance: List[Union[ProvenanceGraph, Chunk, ProvenanceTable]]
 
 
 class AllSelector(BaseSelector):
@@ -243,10 +296,51 @@ Question: {query_str}
 
 Graph Schema: {schema}
 """.strip()
-GRAPH_QUERY_SYNTHESIS_PROMPT = PromptTemplate(GRAPH_QUERY_SYNTHESIS_TMPL)
+DEFAULT_GRAPH_QUERY_SYNTHESIS_PROMPT = PromptTemplate(GRAPH_QUERY_SYNTHESIS_TMPL)
+
+DEFAULT_KG_RESPONSE_ANSWER_PROMPT_TMPL = """
+The original question is given below.
+This question has been translated into a Graph Database query.
+Both the Graph query and the response are given below.
+Given the Graph Query response, synthesise a response to the original question.
+
+Original question: {query_str}
+Graph query: {kg_query_str}
+Graph response: {kg_response_str}
+Response:
+"""
+
+DEFAULT_KG_RESPONSE_ANSWER_PROMPT = PromptTemplate(
+    DEFAULT_KG_RESPONSE_ANSWER_PROMPT_TMPL,
+    prompt_type=PromptType.QUESTION_ANSWER,
+)
 
 
-class KnowledgeGraphQueryEngineWithProvenance(KnowledgeGraphQueryEngine):
+class Nl2CypherRetriever(BaseRetriever):
+    def __init__(
+            self,
+            llm: Optional[LLM] = None,
+            storage_context: Optional[StorageContext] = None,
+            graph_query_synthesis_prompt: Optional[PromptTemplate] = None,
+            graph_response_answer_prompt: Optional[PromptTemplate] = None,
+    ):
+        super().__init__()
+        # Ensure that we have a graph store
+        assert storage_context is not None, "Must provide a storage context."
+        assert (
+                storage_context.graph_store is not None
+        ), "Must provide a graph store in the storage context."
+        self._storage_context = storage_context
+        self.graph_store = storage_context.graph_store
+        self._llm = llm or llm_from_settings_or_context(Settings, None)
+        self._graph_schema = self.graph_store.get_schema()
+
+        self._graph_query_synthesis_prompt = graph_query_synthesis_prompt or DEFAULT_GRAPH_QUERY_SYNTHESIS_PROMPT
+
+        self._graph_response_answer_prompt = (
+                graph_response_answer_prompt or DEFAULT_KG_RESPONSE_ANSWER_PROMPT
+        )
+
     def generate_query(self, query_str: str) -> str:
         """Generate a Graph Store Query from a query bundle."""
         # Get the query engine query string
@@ -272,7 +366,8 @@ class KnowledgeGraphQueryEngineWithProvenance(KnowledgeGraphQueryEngine):
             i = 0
             while '-[:' in cypher:
                 cypher = cypher.replace(f'-[:', f'-[rr{i}:', 1)
-            cypher = re.sub(r"\bRETURN\b.*$", "RETURN *", cypher, flags=re.IGNORECASE)
+                i += 1
+            cypher = re.sub(r"\bRETURN\b.*$", "RETURN *", cypher, flags=re.IGNORECASE | re.DOTALL)
             result = session.run(cypher)
             result = list(result)
             for record in result:
@@ -346,64 +441,97 @@ class KnowledgeGraphQueryEngineWithProvenance(KnowledgeGraphQueryEngine):
                     metadata={'graph_store_query': graph_store_query}
                 )
             )
+
         return [node]
 
 
+CITATION_QA_TEMPLATE = PromptTemplate(
+    "Please provide an answer based solely on the provided sources. "
+    "When referencing information from a source, "
+    "cite the appropriate source(s) using their corresponding numbers. "
+    "Every answer should include at least one source citation. "
+    "Only cite a source when you are explicitly referencing it. "
+    "If none of the sources are helpful, you should indicate that. "
+    "Consider all sources when you decide the answer, some source might not have the desired information but other might have. "
+    "Cite all sources that support your answer, but do not cite sources that are not relevant to the answer. "
+    "For example:\n"
+    "Source 1:\n"
+    "The sky is red in the evening and blue in the morning.\n"
+    "Source 2:\n"
+    "Water is wet when the sky is red.\n"
+    "Query: When is water wet?\n"
+    "Answer: Water will be wet when the sky is red [2], "
+    "which occurs in the evening [1].\n"
+    "Now it's your turn. Below are several numbered sources of information:"
+    "\n------\n"
+    "{context_str}"
+    "\n------\n"
+    "Query: {query_str}\n"
+    "Answer: "
+)
+
+CITATION_REFINE_TEMPLATE = PromptTemplate(
+    "Please provide an answer based solely on the provided sources. "
+    "When referencing information from a source, "
+    "cite the appropriate source(s) using their corresponding numbers. "
+    "Every answer should include at least one source citation. "
+    "Only cite a source when you are explicitly referencing it. "
+    "If none of the sources are helpful, you should indicate that. "
+    "Consider all sources when you decide the answer, some source might not have the desired information but other might have. "
+    "Cite all sources that support your answer, but do not cite sources that are not relevant to the answer. "
+    "For example:\n"
+    "Source 1:\n"
+    "The sky is red in the evening and blue in the morning.\n"
+    "Source 2:\n"
+    "Water is wet when the sky is red.\n"
+    "Query: When is water wet?\n"
+    "Answer: Water will be wet when the sky is red [2], "
+    "which occurs in the evening [1].\n"
+    "Now it's your turn. "
+    "We have provided an existing answer: {existing_answer}"
+    "Below are several numbered sources of information. "
+    "Use them to refine the existing answer. "
+    "If the provided sources are not helpful, you will repeat the existing answer."
+    "\nBegin refining!"
+    "\n------\n"
+    "{context_msg}"
+    "\n------\n"
+    "Query: {query_str}\n"
+    "Answer: "
+)
+
+
 # @st.cache_resource()
-def get_graph_query_engine(verbose=False):
+def get_graph_retriever():
     graph_store = Neo4jGraphStore(
         username=os.environ.get("NEO4J_USERNAME"),
         password=os.environ.get("NEO4J_PASSWORD"),
-        url="bolt://localhost:7687",
+        url="bolt://neo4j:7687",
         database="neo4j",
     )
     storage_context = StorageContext.from_defaults(graph_store=graph_store)
-
-    query_engine = KnowledgeGraphQueryEngineWithProvenance(
-        storage_context=storage_context,
-        verbose=verbose,
-        graph_query_synthesis_prompt=GRAPH_QUERY_SYNTHESIS_PROMPT,
-    )
-    return query_engine
+    return Nl2CypherRetriever(storage_context=storage_context)
 
 
 @st.cache_resource()
-def get_doc_query_engine(
-        emb_model, doc_top_k, index_type="default"
-):
+def get_doc_index(emb_model):
     persist_dir = os.path.join("data/toolbox/indices", 'doc_default_' + emb_model.replace('/', '--'))
     if not (os.path.exists(persist_dir) and os.listdir(persist_dir)):
         raise ValueError(f"Index not found in {persist_dir}")
-
-    t0 = time.time()
-
-    if index_type == "default":
-        storage_context = StorageContext.from_defaults(persist_dir=persist_dir)
-        index = load_index_from_storage(storage_context)
-    elif "faiss" == index_type:
-        vector_store = FaissVectorStore.from_persist_dir(persist_dir)
-        storage_context = StorageContext.from_defaults(vector_store=vector_store, persist_dir=persist_dir)
-        index = load_index_from_storage(storage_context)
-    else:
-        raise ValueError(f"Index type {index_type} not supported")
-
-    query_engine = index.as_query_engine(
-        similarity_top_k=doc_top_k,
-        verbose=True,
-    )
-    # st.write(f"Index loaded in {time.time() - t0:.2f} seconds")
-    return query_engine
+    storage_context = StorageContext.from_defaults(persist_dir=persist_dir)
+    index = load_index_from_storage(storage_context)
+    return index
 
 
 @st.cache_resource()
 def get_table_query_engine(
-        emb_model, table_top_k, index_type="default"
+        emb_model, table_top_k
 ):
-    persist_dir = os.path.join("data/toolbox/indices", 'table_' + index_type + '_' + emb_model.replace('/', '--'))
+    persist_dir = os.path.join("data/toolbox/indices", 'table_default_' + emb_model.replace('/', '--'))
     user = 'yanlin'
     password = '444Castro'
     db = 'lake'
-    conn_str = f'postgresql+psycopg://{user}:{password}@localhost/{db}'
+    conn_str = f'postgresql+psycopg://{user}:{password}@postgres/{db}'
     schema = 'wikisql'
     engine = create_engine(conn_str)
     sql_database = SQLDatabase(engine, schema=schema)
@@ -413,12 +541,12 @@ def get_table_query_engine(
     query_engine = SQLTableRetrieverQueryEngine(
         sql_database, object_retriever, verbose=False
     )
-    return query_engine, object_retriever
+    return query_engine
 
 
 def get_tables(table_names: List[str]) -> List[Table]:
     table_ids = [t[2:].replace('_', '-') for t in table_names]
-    mongo_client = MongoClient("mongodb://localhost:27018/")
+    mongo_client = MongoClient("mongodb://mongo:27017/")
     tables = []
     for collection in ('wiki-tables_train', 'wiki-tables_dev', 'wiki-tables_test'):
         db = mongo_client['nba-datalake'][collection]
@@ -441,43 +569,22 @@ def load_json(path):
         return json.load(f)
 
 
-@trace_langfuse(name='data_discovery_demo')
-def run_data_discovery(question: str, llm: str, emb_model: str, doc_top_k: int,
-                       table_top_k: int, summary_type: str, selection_mode: str,
-                       debug: bool = False) -> DiscoveryResults:
-    if selection_mode == 'PydanticMultiSelector':
-        selector = PydanticMultiSelector.from_defaults(max_outputs=3)
-    elif selection_mode == 'PydanticSingleSelector':
-        selector = PydanticSingleSelector.from_defaults()
-    elif selection_mode == 'Select all':
-        selector = AllSelector.from_defaults()
-    else:
-        raise ValueError(f"Selection mode {selection_mode} not supported")
-
-    if summary_type == 'Human':
-        summary = HUMAN_SUMMARY
-    elif summary_type == 'Complex':
-        summary = load_json('data/benchmark/modality_summary_complex.json')
-    elif summary_type == 'Basic':
-        summary = load_json('data/benchmark/modality_summary_basic.json')
-    else:
-        raise ValueError(f"Summary type {summary_type} not supported")
-
-    graph_engine = get_graph_query_engine()
+def get_router_query_engine(emb_model, doc_top_k, table_top_k, selector, summary):
+    graph_retriever = get_graph_retriever()
+    graph_engine = RetrieverQueryEngine(retriever=graph_retriever)
     graph_engine_tool = QueryEngineTool.from_defaults(
         query_engine=graph_engine,
         description=summary['graph']
     )
 
-    with st.spinner("Loading document index..."):
-        doc_engine = get_doc_query_engine(emb_model, doc_top_k)
+    doc_index = get_doc_index(emb_model)
+    doc_engine = doc_index.as_query_engine(similarity_top_k=doc_top_k)
     doc_engine_tool = QueryEngineTool.from_defaults(
         query_engine=doc_engine,
         description=summary['doc']
     )
 
-    with st.spinner("Loading table index..."):
-        table_engine, table_retriever = get_table_query_engine(emb_model, table_top_k)
+    table_engine = get_table_query_engine(emb_model, table_top_k)
     table_engine_tool = QueryEngineTool.from_defaults(
         query_engine=table_engine,
         description=summary['table']
@@ -489,13 +596,140 @@ def run_data_discovery(question: str, llm: str, emb_model: str, doc_top_k: int,
         'table': table_engine_tool
     }
 
-    # st.write(selector.select(["place", "person"], 'person'))
-
     engine = RouterQueryEngine(
         selector=selector,
         query_engine_tools=list(tools.values()),
     )
-    resp = engine.query(question)
+    return engine
+
+
+class CitationNodePostprocessor(BaseNodePostprocessor):
+    def _postprocess_nodes(
+            self,
+            nodes: List[NodeWithScore],
+            query_bundle: Optional[QueryBundle] = None,
+    ) -> List[NodeWithScore]:
+        """Postprocess nodes."""
+        new_nodes: List[NodeWithScore] = []
+        for node in nodes:
+            text = node.node.get_content(metadata_mode=MetadataMode.LLM)
+            text = f"Source {len(new_nodes) + 1}:\n{text}\n"
+            new_node = NodeWithScore(
+                node=TextNode.parse_obj(node.node), score=node.score
+            )
+            new_node.node.text = text
+            new_nodes.append(new_node)
+        return new_nodes
+
+
+def get_custom_query_engine(emb_model, doc_top_k, table_top_k, selector, summary):
+    graph_retriever_tool = RetrieverTool.from_defaults(
+        retriever=get_graph_retriever(),
+        description=summary['graph']
+    )
+    doc_retriever_tool = RetrieverTool.from_defaults(
+        retriever=get_doc_index(emb_model).as_retriever(similarity_top_k=doc_top_k),
+        description=summary['doc']
+    )
+    table_retriever_tool = RetrieverTool.from_defaults(
+        retriever=get_table_query_engine(emb_model, table_top_k)._sql_retriever,
+        description=summary['table']
+    )
+    retriever = RouterRetriever(
+        selector=selector,
+        retriever_tools=[
+            graph_retriever_tool,
+            doc_retriever_tool,
+            table_retriever_tool
+        ],
+    )
+    return RetrieverQueryEngine.from_args(
+        retriever=retriever,
+        streaming=True,
+        text_qa_template=CITATION_QA_TEMPLATE,
+        refine_template=CITATION_REFINE_TEMPLATE,
+        node_postprocessors=[CitationNodePostprocessor()]
+    )
+
+
+class StreamingOutput:
+    def __init__(self, response_gen):
+        self.response_gen = response_gen
+        self.final_response = ''
+        self.buffer = ''
+        self.citation_mapping = {}
+
+    def _yield(self):
+        yield self.buffer
+        self.final_response += self.buffer
+        self.buffer = ''
+
+    def __iter__(self):
+        for text in self.response_gen:
+            self.buffer += text
+            # case 1: no brackets
+            if '[' not in self.buffer:
+                yield from self._yield()
+            # case 2: all brackets are closed
+            elif len(re.findall(r'\[($|\d+)', self.buffer)) == len(re.findall(r'\[([0-9]+)\]', self.buffer)):
+                citations = re.findall(r'\[([0-9]+)\]', self.buffer)
+                for c in citations:
+                    if int(c) not in self.citation_mapping:
+                        self.citation_mapping[int(c)] = len(self.citation_mapping) + 1
+                self.buffer = re.sub(r'\[([0-9]+)\]', lambda m: f'[{self.citation_mapping[int(m.group(1))]}]',
+                                     self.buffer)
+                yield from self._yield()
+            # case 3: brackets are not closed
+            else:
+                continue  # wait for more text
+
+
+@trace_langfuse(name='data_discovery_demo')
+def run_data_discovery(question: str, llm: str, emb_model: str, doc_top_k: int,
+                       table_top_k: int, summary_type: str, selection_mode: str,
+                       debug: bool = False, query_engine_type: str = 'custom',
+                       temperature: float = 0, avatar=None) -> DiscoveryResults:
+    _, body = st.columns([0.001, 0.999], gap="large")
+    with body:
+        with st.spinner('Running data discovery...'):
+            Settings.llm = OpenAI(temperature=temperature, model=llm)
+            if emb_model.startswith('text-embedding'):
+                Settings.embed_model = OpenAIEmbedding(model=emb_model, embed_batch_size=1000)
+            else:
+                Settings.embed_model = HuggingFaceEmbedding(emb_model)
+
+            if selection_mode == 'MultiSelector':
+                selector = PydanticMultiSelector.from_defaults(max_outputs=3)
+            elif selection_mode == 'SingleSelector':
+                selector = PydanticSingleSelector.from_defaults()
+            elif selection_mode == 'Select all':
+                selector = AllSelector.from_defaults()
+            else:
+                raise ValueError(f"Selection mode {selection_mode} not supported")
+
+            if summary_type == 'Human':
+                summary = HUMAN_SUMMARY
+            elif summary_type == 'Complex':
+                summary = load_json('data/benchmark/modality_summary_complex.json')
+            elif summary_type == 'Basic':
+                summary = load_json('data/benchmark/modality_summary_basic.json')
+            else:
+                raise ValueError(f"Summary type {summary_type} not supported")
+
+            if query_engine_type == 'RouterQueryEngine':
+                engine = get_router_query_engine(emb_model, doc_top_k, table_top_k, selector, summary)
+            elif query_engine_type == 'Custom':
+                engine = get_custom_query_engine(emb_model, doc_top_k, table_top_k, selector, summary)
+            else:
+                raise ValueError(f"Query engine type {query_engine_type} not supported")
+
+            resp = engine.query(question)
+    streaming_output = StreamingOutput(resp.response_gen)
+    with st.chat_message('assistant', avatar=avatar):
+        st.write_stream(streaming_output)
+
+    final_resp = streaming_output.final_response
+
     if debug:
         st.write(resp)
         st.write(resp.source_nodes)
@@ -520,7 +754,7 @@ def run_data_discovery(question: str, llm: str, emb_model: str, doc_top_k: int,
                 provenance_doc = ProvenanceDoc(chunks=[])
             provenance_doc.chunks.append(Chunk(
                 title=node.metadata['wikipedia_title'],
-                text=node.text
+                text=re.sub(r'Source \d+:', '', node.text).strip()
             ))
         elif 'sql_query' in node.metadata:
 
@@ -530,41 +764,46 @@ def run_data_discovery(question: str, llm: str, emb_model: str, doc_top_k: int,
                 sql_tables=get_tables(Parser(node.metadata['sql_query']).tables) if 'result' in node.metadata else [],
                 retrieved_tables=get_tables(node.metadata['retrieved_table_names'])
             )
-    for sel in resp.metadata['selector_result'].selections:
-        source = list(tools.keys())[sel.index]
-        if source == 'graph' and provenance_graph is not None:
-            provenance_graph.reason = sel.reason
-        elif source == 'doc' and provenance_doc is not None:
-            provenance_doc.reason = sel.reason
-        elif source == 'table' and provenance_table is not None:
-            provenance_table.reason = sel.reason
 
-    # response = engine.query(d["question"])
-    #     retrieved_tables = table_retriever.retrieve(d["question"])
-    #     table_names = [table.table_name for table in retrieved_tables]
-    #     d['model_response'] = str(response)
-    #     d['model_provenance'] = {
-    #         'tables': {
-    #             'retrieved': table_names,
-    #             'sql': response.metadata['sql_query'].replace("\n", " "),
-    #             'sql_columns': Parser(response.metadata['sql_query']).columns,
-    #             'sql_tables': Parser(response.metadata['sql_query']).tables,
-    #         }
-    #     }
+    selector_result = None
+    if hasattr(engine, '_retriever') and hasattr(engine.retriever, 'selector_result_'):
+        selector_result = engine.retriever.selector_result_
+    elif 'selector_result' in resp.metadata:
+        selector_result = resp.metadata['selector_result']
+    if selector_result is not None:
+        for sel in selector_result.selections:
+            source = ['graph', 'doc', 'table'][sel.index]
+            if source == 'graph' and provenance_graph is not None:
+                provenance_graph.reason = sel.reason
+            elif source == 'doc' and provenance_doc is not None:
+                provenance_doc.reason = sel.reason
+            elif source == 'table' and provenance_table is not None:
+                provenance_table.reason = sel.reason
+
+    sources = []
+    if provenance_graph:
+        sources.append(provenance_graph)
+    if provenance_doc:
+        for chunk in provenance_doc.chunks:
+            sources.append(chunk)
+    if provenance_table:
+        sources.append(provenance_table)
+    cited_provenance = [sources[c - 1] for c in streaming_output.citation_mapping]
+
     return DiscoveryResults(
-        final_response=str(resp),
+        final_response=final_resp,
         selection_results=selection_results,
         provenance_graph=provenance_graph,
         provenance_doc=provenance_doc,
-        provenance_table=provenance_table
+        provenance_table=provenance_table,
+        cited_provenance=cited_provenance
     )
 
 
-def format_doc(title, doc: str):
-    if doc.startswith(f'{title}\n'):
-        doc = re.sub(rf'^{title}\n', '', doc)
-    enwiki_url = f'https://en.wikipedia.org/wiki/{title.replace(" ", "_")}'
-    doc = f'###### [doc] [{title}]({enwiki_url})\n{doc}'
+def format_doc(title, doc: str, remove_title: bool = True):
+    if remove_title:
+        if doc.startswith(f'{title}\n'):
+            doc = re.sub(rf'^{title}\n', '', doc)
     doc = re.sub(r'^Section::::(.*?)\.$',
                  lambda m: '#' * min(6 + m.group(1).count('.'), 6) + f' {m.group(1).split(".")[-1].lstrip(":")}', doc,
                  flags=re.MULTILINE)
@@ -572,12 +811,96 @@ def format_doc(title, doc: str):
     return doc
 
 
-def display_provenance(result: DiscoveryResults):
+def truncate_text(text: str, max_len: int = 36):
+    if len(text) > max_len:
+        return text[:max_len - 3] + '...'
+    return text
+
+
+def display_cited_provenance(result: DiscoveryResults):
+    cols = []
+    for idx, src in enumerate(result.cited_provenance, 1):
+        if not cols:
+            cols = st.columns(4)
+        col = cols.pop(0)
+
+        if len(result.cited_provenance) == 1 and hasattr(result.cited_provenance[0], 'cypher'):
+            height = None
+        elif not any(hasattr(src, 'sql_query') for src in result.cited_provenance):
+            height = 300
+        else:
+            height = 350
+
+        with col:
+            if hasattr(src, 'cypher'):
+                prov_g = src
+                with st.container(border=True, height=height):
+                    st.write(f'###### [{idx}] NBA Knowledge Graph')
+                    if prov_g.result_json is not None:
+                        if len(prov_g.node2name) > 50:
+                            st.warning(f'Graph too large to display', icon="⚠️")
+                        else:
+                            if len(prov_g.node2name) == 0:
+                                st.warning(f'Empty graph', icon="⚠️")
+                            else:
+                                g = graph2graphviz(
+                                    node2name=prov_g.node2name,
+                                    edge2label=prov_g.edge2label,
+                                    id2color={}
+                                )
+                                with st.container(border=False, height=None if len(prov_g.node2name) <= 3 else 200):
+                                    with stylable_container(
+                                            key="graph_",
+                                            css_styles="""
+                                            {
+                                                background-color: #1a1b24;
+                                                border-radius: 8px;
+                                                padding: 1.5em;
+                                            }
+                                            """,
+                                    ):
+                                        st.graphviz_chart(g)
+                        s = json.dumps(json.loads(prov_g.result_json))
+                        if len(s) >= 500:
+                            s = s[:500] + '...'
+                        st.code(s, language='json')
+                    with st.expander('View Cypher'):
+                        st.code(prov_g.cypher, language='cypher')
+
+
+            elif hasattr(src, 'text'):
+                with st.container(border=True, height=height):
+                    text = format_doc(src.title, src.text, remove_title=True)
+                    enwiki_url = f'https://en.wikipedia.org/wiki/{src.title.replace(" ", "_")}'
+                    title = truncate_text(src.title)
+                    text = f'###### [{idx}] [{title}]({enwiki_url})\n{text}'
+                    st.write(text)
+            elif hasattr(src, 'sql_query'):
+                prov_t = src
+                with st.container(border=True, height=height):
+                    if prov_t.result_str is not None:
+                        for i, table in enumerate(prov_t.sql_tables):
+                            enwiki_url = f'https://en.wikipedia.org/wiki/{table.page_title.replace(" ", "_")}#{table.section_title.replace(" ", "_")}'
+                            title = truncate_text(f'{table.page_title} - {table.section_title}')
+                            if i == 0:
+                                st.write(f'###### [{idx}] [{title}]({enwiki_url})')
+                            else:
+                                st.write(f'###### [{title}]({enwiki_url})')
+                            df = pd.DataFrame(table.rows, columns=table.columns)
+                            st.dataframe(df, hide_index=True, height=230)
+                        st.code(prov_t.result_str, language='json')
+                    else:
+                        st.warning(f'No result found', icon="⚠️")
+                    with st.expander('View SQL'):
+                        st.code(prov_t.sql_query, language='sql')
+
+
+def display_full_provenance(result: DiscoveryResults):
     col_graph, col_doc, col_table = st.columns(3)
 
     with col_graph:
         if not result.provenance_graph:
-            st.warning(f'No graph provenance found', icon="⚠️")
+            st.warning(f'Graph source not selected', icon="⚠️")
         else:
             prov_g = result.provenance_graph
             with st.container(border=True):
@@ -598,6 +921,8 @@ def display_provenance(result: DiscoveryResults):
                 with tab2:
                     if len(prov_g.node2name) > 50:
                         st.warning(f'Cannot display graph with more than 50 nodes', icon="⚠️")
+                    elif len(prov_g.node2name) == 0:
+                        st.warning(f'Empty graph', icon="⚠️")
                     else:
                         g = graph2graphviz(
                             node2name=prov_g.node2name,
@@ -611,7 +936,7 @@ def display_provenance(result: DiscoveryResults):
 
     with col_doc:
         if not result.provenance_doc:
-            st.warning(f'No document provenance found', icon="⚠️")
+            st.warning(f'Document source not selected', icon="⚠️")
         else:
             prov_doc = result.provenance_doc
             with st.container(border=True):
@@ -627,11 +952,14 @@ def display_provenance(result: DiscoveryResults):
                 with st.container(height=300 if len(chunk.text) > 600 else None, border=True):
                     # url = f'https://en.wikipedia.org/wiki/{chunk.title.replace(" ", "_")}'
                     # st.write(f'[{chunk.title}]({url})')
-                    st.write(format_doc(chunk.title, chunk.text))
+                    text = format_doc(chunk.title, chunk.text, remove_title=True)
+                    enwiki_url = f'https://en.wikipedia.org/wiki/{chunk.title.replace(" ", "_")}'
+                    text = f'###### [doc] [{chunk.title}]({enwiki_url})\n{text}'
+                    st.write(text)
 
     with col_table:
         if not result.provenance_table:
-            st.warning(f'No table provenance found', icon="⚠️")
+            st.warning(f'Table source not selected', icon="⚠️")
         else:
             prov_t = result.provenance_table
             with st.container(border=True):
@@ -693,6 +1021,24 @@ def load_questions():
     return questions, q2src
 
 
+def add_spinner(fn):
+    def fn_with_spinner(*args, **kwargs):
+        with st.spinner():
+            return fn(*args, **kwargs)
+
+    return fn_with_spinner
+
+
+@st.cache_data()
+def load_file(file_path):
+    with open(file_path, 'r') as f:
+        return f.read()
+
+
+# Nl2CypherRetriever.generate_query = add_spinner(Nl2CypherRetriever.generate_query)
+# RetrieverQueryEngine.query = add_spinner(RetrieverQueryEngine.query)
+
+
 def main():
     st.set_page_config(
         page_title='Data Discovery',
@@ -711,69 +1057,210 @@ def main():
         </style>
         """, unsafe_allow_html=True)
 
+    # st.markdown(" <style> div[class^='st-emotion-cache-16txtl3 '] { padding-top: 2rem; } </style> ",
+    #             unsafe_allow_html=True)
+
     with st.sidebar:
         llm = st.selectbox("LLM", ["gpt-4o", "gpt-4-turbo-preview", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"])
-        emb_model = st.selectbox("Embedding Model", ["BAAI/bge-base-en-v1.5"])
-        doc_top_k = st.slider("Document Top K", 1, 10, 3)
-        table_top_k = st.slider("Table Top K", 1, 10, 3)
+        temperature = st.select_slider("Temperature", options=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
 
-        summary_type = st.radio("Source Summary", ["Human", "Complex", "Basic"])
+        c1, c2 = st.columns(2)
+        with c1:
+            doc_top_k = st.slider("Doc Top K", 1, 10, 3)
+        with c2:
+            table_top_k = st.slider("Table Top K", 1, 10, 3)
 
-        selection_mode = st.radio("Selection Mode", ["Select all", "PydanticMultiSelector", "PydanticSingleSelector"])
+        c1, c2 = st.columns(2)
+        with c1:
+            summary_type = st.radio("Source Summary", ["Human", "Complex", "Basic"])
+        with c2:
+            selection_mode = st.radio("Selection Mode", ["Select all", "MultiSelector", "SingleSelector"])
 
         st.divider()
-
         questions, q2src = load_questions()
         questions = ["What is the height of LeBron James?"] + questions
+        q2src["What is the height of LeBron James?"] = "graph"
 
-        example = st.selectbox(
-            "Example questions",
-            ["Select an example"] + questions,
-            format_func=lambda x: f'[{q2src[x]}] {x}' if x in q2src else x
-        )
-        st.text_area('', "" if example == "Select an example" else example, label_visibility='collapsed', height=100)
+        key_word = st.text_input("Search sample question by keyword", "")
+        sources = st.multiselect("Filter by sources", ["graph", "doc", "table"], ["graph", "doc", "table"],
+                                 label_visibility='collapsed')
+        questions = [q for q in questions if (key_word.lower() in q.lower() or key_word == "")
+                     and q2src.get(q) in sources]
+        st.dataframe(pd.DataFrame({f'{len(questions)} matches': questions}),
+                     hide_index=True, height=220)
 
         st.divider()
+        emb_model = st.selectbox("Embedding Model", ["BAAI/bge-base-en-v1.5"])
+        query_engine_type = st.radio("Query Engine", ["RouterQueryEngine", "Custom"], index=1)
 
+        st.divider()
         debug_mode = st.toggle("Debug Mode", False)
-
-    Settings.llm = OpenAI(temperature=0, model=llm)
-    if emb_model.startswith('text-embedding'):
-        Settings.embed_model = OpenAIEmbedding(model=emb_model, embed_batch_size=1000)
-    else:
-        Settings.embed_model = HuggingFaceEmbedding(emb_model)
 
     # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
+
+    svg = load_file('assets/r2d2.svg')
+    if len(st.session_state.messages) == 0:
+        st.markdown("""
+        <style>
+        .centered-content-icon {
+            display: flex;
+            flex-direction: column;  /* Stack items vertically */
+            justify-content: center;
+            align-items: center;
+            # height: 65vh;  /* 65% of the viewport height */
+            padding-top: 15vh;  /* 30% from the top */
+        }
+        # .text-style {
+        #     font-size: 32px;  /* Larger text size */
+        #     color: rgba(255, 255, 255, 0.2);  /* White text at 40% opacity */
+        #     font-family: 'Press Start 2P', monospace;  /* Pixel-like, monospace font */
+        # }
+        .main-icon {
+            fill: #FFFFFF;
+            opacity: 0.3;
+            height: 250px;
+        }
+        .block-container div[data-testid="column"]:nth-of-type(5)
+            {
+                # border:1px solid red;
+                text-align: end;
+            } 
+    
+        .block-container div[data-testid="column"]:nth-of-type(6)
+            {
+                # border:1px solid blue;
+            } 
+        
+        button[kind="secondary"] {
+            border: 1px solid #444444;  
+            color: #aaaaaa; 
+            height: 42px;
+            width: 440px;
+            text-align: left;
+            display: inline-block;
+            border-radius: 3px;
+            background-color: transparent; 
+            padding: 0px 12px;
+            opacity: 0.7;
+            # cursor: pointer;
+            # padding: 8px 16px;
+            # text-decoration: none;
+            # font-size: 16px;
+            # margin: 4px 2px;
+        }
+        button[kind="secondary"]:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid #444444; 
+            color: #aaaaaa; 
+        }
+        button[kind="secondary"]:focus {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid #444444; 
+            color: #aaaaaa; 
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+            <style>
+            .centered-content-icon { display: none; }
+            .block-container div[data-testid="column"]:nth-of-type(5) { display: none; }
+            .block-container div[data-testid="column"]:nth-of-type(6) { display: none; }
+            .stChatInput {
+                position: fixed;
+                z-index: 1000;
+                bottom: 50px;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+    st.markdown(f'<div class="centered-content-icon">{svg}', unsafe_allow_html=True)
+
+
+    # if len(st.session_state.messages) == 0:
+    #     _, col, _ = st.columns([0.05, 0.92, 0.03])
+    #     with col:
+    #         question = st.chat_input(' Ask anything about NBA', key='initial_')
+    # else:
+    #     question = st.chat_input(' Ask anything about NBA')
+    # st.write('')
+    from streamlit import _bottom
+    _bottom.container(height=50, border=False)
+
+    _, col, _ = st.columns([0.05, 0.92, 0.03])
+    with col:
+        question = st.chat_input(' Ask anything about NBA')
+
+    _, _, _, _, col1, col2, _, _, _, _ = st.columns([0.01, 0.01, 0.01, 0.01, 0.5, 0.5, 0.01, 0.01, 0.01, 0.07])
+    with col1:
+        st.write('')
+        # example_anthony = st.button('⛹️ &nbsp;Introduce Anthony Davis')
+        example_lebron_stephen = st.button('⛹️ &nbsp;Compare LeBron James to Stephen Curry')
+        example_big_ticker = st.button('🎫 &nbsp;Which NBA player was nicknamed "The Big Ticket"?')
+    with col2:
+        st.write('')
+        example_mvp = st.button('🏆 &nbsp;Who has won the most NBA Most Valuable Player Awards?')
+        example_kevin = st.button('📅 &nbsp;When did Kevin Garnett leave the Boston Celtics?')
 
     # Display chat messages from history on app rerun
     for message in st.session_state.messages:
         if message['role'] == 'user':
             st.chat_message(message["role"]).write(message["content"])
         elif message['role'] == 'assistant':
-            st.chat_message(message["role"]).write(message["content"].final_response)
+            st.chat_message(message["role"], avatar='assets/m2d2-icon.png').write(message["content"].final_response)
             _, body = st.columns([0.001, 0.999], gap="large")
             with body:
-                with st.expander('View provenance'):
-                    display_provenance(message["content"])
+                display_cited_provenance(message["content"])
+                with st.expander('View full provenance'):
+                    display_full_provenance(message["content"])
             # st.caption('')
             st.divider()
 
-    question = st.chat_input('Enter a question')
-    if question is None:
+    if not any([question, example_lebron_stephen, example_big_ticker, example_mvp,
+                example_kevin]):
         st.stop()
-    st.chat_message('user').write(question)
+
+    if question:
+        question = question.strip()
+    elif example_lebron_stephen:
+        question = "Compare LeBron James to Stephen Curry"
+    elif example_kevin:
+        question = "When did Kevin Garnett leave the Boston Celtics?"
+    elif example_big_ticker:
+        question = "Which NBA player was nicknamed 'The Big Ticket'?"
+    elif example_mvp:
+        question = "Who has won the most NBA Most Valuable Player Awards?"
+
+    st.markdown("""
+            <style>
+            .centered-content-icon { display: none; }
+            .block-container div[data-testid="column"]:nth-of-type(5) { display: none; }
+            .block-container div[data-testid="column"]:nth-of-type(6) { display: none; }
+            .stChatInput {
+                position: fixed;
+                z-index: 1000;
+                bottom: 50px;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+
+    # if len(st.session_state.messages) == 0:
+    #     st.chat_input(' Ask anything about NBA')
+
     st.session_state.messages.append({"role": "user", "content": question})
+    st.chat_message('user').write(question)
 
     result = run_data_discovery(question, llm, emb_model, doc_top_k, table_top_k, summary_type, selection_mode,
-                                debug=debug_mode)
-    st.chat_message('assistant').write(result.final_response)
+                                debug=debug_mode, query_engine_type=query_engine_type, temperature=temperature,
+                                avatar='assets/m2d2-icon.png')
+    st.session_state.messages.append({"role": "assistant", "content": result})
     _, body = st.columns([0.001, 0.999], gap="large")
     with body:
-        with st.expander('View provenance'):
-            display_provenance(result)
-    st.session_state.messages.append({"role": "assistant", "content": result})
+        display_cited_provenance(result)
+        with st.expander('View full provenance'):
+            display_full_provenance(result)
 
 
 if __name__ == '__main__':
