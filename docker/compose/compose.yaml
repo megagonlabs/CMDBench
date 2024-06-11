@@ -10,7 +10,11 @@ services:
             - mongo
         ports:
             - 8501:8501
+        volumes:
+            - ../services/demo:/app
         environment:
+            NEO4J_USERNAME: $NEO4J_USERNAME
+            NEO4J_PASSWORD: $NEO4J_PASSWORD
             PGHOST: postgres
             PGUSER: $PGUSER
             PGDATABASE_NBA: $PGDATABASE_NBA

@@ -1,6 +1,14 @@
 streamlit
 streamlit_code_editor
+streamlit-extras
 pymongo
 neo4j
 graphviz
 pandas
+llama-index
+llama-index-llms-openai
+llama-index-graph-stores-neo4j
+llama-index-embeddings-huggingface
+psycopg2-binary
+psycopg[binary,pool]
+sql-metadata

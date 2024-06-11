@@ -16,8 +16,6 @@ from llama_index.core.callbacks.schema import CBEventType, EventPayload
 from llama_index.core.utils import print_text
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.retrievers.bm25 import BM25Retriever
-from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.llms.openai import OpenAI
 from llama_index.core.query_engine import RouterQueryEngine
 from llama_index.core.response_synthesizers import (
@@ -63,9 +61,8 @@ from typing import List, Any, Dict, Tuple, Optional, Sequence, Union
 import sys
 
 sys.path.append('.')
-from toolbox.langfuse_utils import trace_langfuse
 
-from toolbox.visualization_utils import graph2graphviz
+from visualization_utils import graph2graphviz
 
 logger = logging.getLogger(__name__)
 
@@ -684,7 +681,6 @@ class StreamingOutput:
                 continue  # wait for more text
 
 
-@trace_langfuse(name='data_discovery_demo')
 def run_data_discovery(question: str, llm: str, emb_model: str, doc_top_k: int,
                        table_top_k: int, summary_type: str, selection_mode: str,
                        debug: bool = False, query_engine_type: str = 'custom',
@@ -1177,7 +1173,6 @@ def main():
         """, unsafe_allow_html=True)
 
     st.markdown(f'<div class="centered-content-icon">{svg}', unsafe_allow_html=True)
-
 
     # if len(st.session_state.messages) == 0:
     #     _, col, _ = st.columns([0.05, 0.92, 0.03])
