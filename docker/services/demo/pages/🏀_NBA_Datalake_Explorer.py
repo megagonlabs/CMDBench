@@ -175,7 +175,8 @@ def get_tables(_mongodb_client: MongoClient, db_name: str,
     if db_name == 'nba-datalake-v2':
         collection_names = ['wiki-tables']
     elif db_name == 'nba-datalake':
-        collection_names = [f'wiki-tables_{split}' for split in ('train', 'dev', 'test')]
+        # collection_names = [f'wiki-tables_{split}' for split in ('train', 'dev', 'test')]
+        collection_names = ['wiki-tables']
     else:
         raise ValueError(f'Invalid db_name: {db_name}')
 
