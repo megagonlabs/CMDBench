@@ -1,0 +1,559 @@
+[
+  {
+    "qid": "216f99dc-2826-4db8-92c3-f5066c8cf528",
+    "question": "When did Dwyane Wade leave the Miami Heat?",
+    "answer": "2016",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Dwyane Wade'})-[r:playsFor]->(t:Team {name: 'Miami Heat'}) RETURN r.end_time AS leave_time",
+      "node_ids": [
+        5231,
+        1503
+      ],
+      "edge_ids": [
+        11865
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "76231a2c-36b8-43a2-8d99-6807d39e33da",
+    "question": "Does any of the players drafted by the Golden State Warriors, have a height greater than 2.1 metre?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player)-[r:draftedBy]->(t:Team {name: 'Golden State Warriors'}) WHERE CASE WHEN p.height CONTAINS 'centimetre' THEN toFloat(replace(p.height, ' centimetre', '')) WHEN p.height CONTAINS 'metre' THEN toFloat(replace(p.height, ' metre', '')) * 100 ELSE 0 END > 210 RETURN p.name, p.height",
+      "node_ids": [
+        389,
+        6,
+        3977,
+        1804,
+        2574,
+        2835,
+        6547,
+        25,
+        6427,
+        2083,
+        6309,
+        2727,
+        307,
+        4020,
+        1976,
+        5562,
+        2771,
+        3799,
+        3034,
+        5596,
+        3164,
+        5216,
+        1634,
+        6897,
+        1914
+      ],
+      "edge_ids": [
+        19458,
+        20227,
+        20615,
+        21769,
+        20117,
+        19605,
+        19610,
+        19876,
+        19494,
+        19630,
+        19759,
+        21171,
+        19380,
+        20019,
+        22211,
+        19140,
+        19151,
+        19919,
+        20821,
+        20445,
+        20830,
+        19440,
+        21105,
+        20347
+      ],
+      "type": "sub-graph"
+    }
+  },
+  {
+    "qid": "80c2e131-7403-46d9-badc-8a0243f47482",
+    "question": "What is the sport team number of Dwyane Wade who is a member of the Chicago Bulls?",
+    "answer": "3",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Dwyane Wade'})-[r:playsFor]->(t:Team {name: 'Chicago Bulls'}) RETURN r.sport_number",
+      "node_ids": [
+        5234,
+        1503
+      ],
+      "edge_ids": [
+        2817
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "4e466017-c877-47f1-96ab-009b5d995531",
+    "question": "When did Kareem Abdul-Jabbar start being a member of Milwaukee Bucks?",
+    "answer": "1969",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Kareem Abdul-Jabbar'})-[r:playsFor]->(t:Team {name: 'Milwaukee Bucks'}) RETURN r.start_time",
+      "node_ids": [
+        5225,
+        6366
+      ],
+      "edge_ids": [
+        2761
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "cc6acb0e-d7fc-4176-bee3-98b21161ba02",
+    "question": "What is the mass of Tim Duncan(the one that belongs to United States of America) ?",
+    "answer": "113 kilogram",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Tim Duncan', country_of_citizenship: 'United States of America'}) RETURN p.mass AS mass",
+      "node_ids": [
+        6505
+      ],
+      "edge_ids": [],
+      "type": "point"
+    }
+  },
+  {
+    "qid": "f1403599-09bb-441a-840d-8d68b964783d",
+    "question": "Is Robert Smith a member of Utah Jazz?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Robert Smith'})-[r:playsFor]->(t:Team {name: 'Utah Jazz'}) RETURN p.name",
+      "node_ids": [
+        5232,
+        141
+      ],
+      "edge_ids": [
+        4807
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "2b4876b0-0039-4f8e-a9cb-e17772c1657c",
+    "question": "In 1996, did any member of Orlando Magic weigh less than 150 kg?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player)-[r:playsFor]->(t:Team) WHERE t.name = 'Orlando Magic' AND r.start_time <= '1996' AND (r.end_time >= '1996' OR r.end_time IS NULL) AND (CASE WHEN p.mass ENDS WITH ' pound' THEN toFloat(replace(p.mass, ' pound', '')) * 0.453592 WHEN p.mass ENDS WITH ' kilogram' THEN toFloat(replace(p.mass, ' kilogram', '')) ELSE 1e9 END) < 150 RETURN p.name, p.mass",
+      "node_ids": [
+        1450,
+        5219,
+        6708,
+        1143
+      ],
+      "edge_ids": [
+        2810,
+        6734,
+        3322
+      ],
+      "type": "sub-graph"
+    }
+  },
+  {
+    "qid": "bc1fecba-f856-4369-baf6-1cb9a24d9cc0",
+    "question": "What team was LeBron James drafted by in the 2003 NBA Draft?",
+    "answer": "Cleveland Cavaliers",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'LeBron James'})-[r:draftedBy]->(t:Team) WHERE r.time CONTAINS '2003' RETURN t.name",
+      "node_ids": [
+        5208,
+        1443
+      ],
+      "edge_ids": [
+        19166
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "d49e09b5-c09c-49d6-8469-7de7436afeb0",
+    "question": "What basketball team is Michael Jackson, born 1964-07-13, a member of?",
+    "answer": "Sacramento Kings",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Michael Jackson', date_of_birth: '13 July 1964'})-[r:playsFor]->(t:Team) RETURN DISTINCT t.name AS teamName",
+      "node_ids": [
+        2201,
+        5235
+      ],
+      "edge_ids": [
+        11691
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "6e3b46b3-b0df-4e4d-9a4b-94ea766cdcb9",
+    "question": "Was any member of Portland Trail Blazers born before 1940?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player)-[r:playsFor]->(t:Team {name: 'Portland Trail Blazers'}) WHERE substring(p.date_of_birth, size(p.date_of_birth)  - 4, 4) < '1940' RETURN p.name, p.date_of_birth",
+      "node_ids": [
+        656,
+        2389,
+        5230
+      ],
+      "edge_ids": [
+        10450,
+        4994
+      ],
+      "type": "sub-graph"
+    }
+  },
+  {
+    "qid": "0bbeae6f-90c9-4a11-a39b-915b1d97b111",
+    "question": "What is the date of birth of Michael Jackson who was born in Fairfax?",
+    "answer": "13 July 1964",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Michael Jackson', place_of_birth: 'Fairfax'}) RETURN p.date_of_birth AS date_of_birth",
+      "node_ids": [
+        2201
+      ],
+      "edge_ids": [],
+      "type": "point"
+    }
+  },
+  {
+    "qid": "b8b19f3d-185e-4a5d-92a3-60cc3a03f208",
+    "question": "When was the basketball team that included Jack Thompson as the member, established?",
+    "answer": "1967",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Jack Thompson'})-[r:playsFor]->(t:Team) RETURN t.name, t.inception",
+      "node_ids": [
+        5226,
+        2716
+      ],
+      "edge_ids": [
+        5548
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "254239eb-0e13-4c11-bd5c-36eabe25be14",
+    "question": "What is the sport number of Dennis Rodman, who is a member of the Detroit Pistons?",
+    "answer": "10",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Dennis Rodman'})-[r:playsFor]->(t:Team {name: 'Detroit Pistons'}) RETURN r.sport_number AS sport_number",
+      "node_ids": [
+        5224,
+        697
+      ],
+      "edge_ids": [
+        2851
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "1b4c5848-1f47-487b-9241-57bfc74790f6",
+    "question": "What height is the person Ray Allen?",
+    "answer": "196 centimetre",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Ray Allen'}) RETURN p.height AS height",
+      "node_ids": [
+        6552
+      ],
+      "edge_ids": [],
+      "type": "point"
+    }
+  },
+  {
+    "qid": "c57c222a-dcac-455f-88fa-b48794b08c90",
+    "question": "Which position is played by Detroit Pistons team member Dennis Rodman?",
+    "answer": "power forward",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Dennis Rodman'})-[r:playsFor]->(t:Team {name: 'Detroit Pistons'}) RETURN r.position",
+      "node_ids": [
+        5224,
+        697
+      ],
+      "edge_ids": [
+        2851
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "9f784815-2b08-4db9-b108-8781ce42b308",
+    "question": "Who is shorter LeBron James or Tim Duncan, a member from San Antonio Spurs?",
+    "answer": "LeBron James",
+    "provenance_graph": {
+      "cypher": "MATCH (p1:Player)-[r:playsFor]->(t:Team), (p2:Player) WHERE p1.name = 'Tim Duncan' AND t.name = 'San Antonio Spurs' AND p2.name = 'LeBron James' RETURN p1.name AS Player1, p1.height AS Height1, p2.name AS Player2, p2.height AS Height2 ORDER BY p1.height, p2.height LIMIT 1",
+      "node_ids": [
+        5233,
+        6505,
+        1443
+      ],
+      "edge_ids": [
+        2806
+      ],
+      "type": "sub-graph"
+    }
+  },
+  {
+    "qid": "465ec6cf-1b04-4b6a-a918-a0374c8d6e91",
+    "question": "What is the end time which applies to Dennis Rodman as a team member of the Chicago Bulls?",
+    "answer": "1998",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Dennis Rodman'})-[r:playsFor]->(t:Team {name: 'Chicago Bulls'}) RETURN r.end_time",
+      "node_ids": [
+        697,
+        5234
+      ],
+      "edge_ids": [
+        2884
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "9ae49542-058d-40f7-bb95-2d7758fdc643",
+    "question": "At what time point did Dwyane Wade receive Sports Illustrated Sportsperson of the Year?",
+    "answer": "2006",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Dwyane Wade'})-[r:receivesAward]->(a:Award {name: 'Sports Illustrated Sportsperson of the Year'}) RETURN r.time",
+      "node_ids": [
+        5370,
+        1503
+      ],
+      "edge_ids": [
+        2004
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "981a0677-513f-4316-a7a3-046fe8a1190d",
+    "question": "When did Kevin Garnett leave the Boston Celtics?",
+    "answer": "12 July 2013",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Kevin Garnett'})-[r:playsFor]->(t:Team {name: 'Boston Celtics'}) RETURN r.end_time AS leaveTime",
+      "node_ids": [
+        6384,
+        5229
+      ],
+      "edge_ids": [
+        2741
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "26852e64-f199-47d4-ba76-db4d2a1ead74",
+    "question": "What is the sports number of Allen Iverson who is a member of Memphis Grizzlies?",
+    "answer": "3",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Allen Iverson'})-[r:playsFor]->(t:Team {name: 'Memphis Grizzlies'}) RETURN r.sport_number AS sport_number",
+      "node_ids": [
+        5220,
+        6511
+      ],
+      "edge_ids": [
+        2665
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "79049a5a-47d8-46a1-8120-489de363bb59",
+    "question": "What is the name of a basketball team that drafted Michael Jordan Michael Jordan (the one whose nickname is G.O.A.T.)?",
+    "answer": "Chicago Bulls",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Michael Jordan'})-[r:draftedBy]->(t:Team) WHERE p.nickname CONTAINS 'G.O.A.T' RETURN t.name AS teamName",
+      "node_ids": [
+        1465,
+        5234
+      ],
+      "edge_ids": [
+        19122
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "ce8aedbb-e96f-40d7-9d0b-0b5fcd38b478",
+    "question": "Was any person who was drafted by San Antonio Spurs born in 1976?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player)-[r:draftedBy]->(t:Team {name: 'San Antonio Spurs'}) where p.date_of_birth CONTAINS '1976' return p.name, p.date_of_birth",
+      "node_ids": [
+        6505,
+        5233
+      ],
+      "edge_ids": [
+        21896
+      ],
+      "type": "sub-graph"
+    }
+  },
+  {
+    "qid": "c948da55-818a-4fef-9abd-4055297985fa",
+    "question": "Is the formation date of the Sacramento Kings on 1871-01-01?",
+    "answer": "no",
+    "provenance_graph": {
+      "cypher": "MATCH (t:Team {name: 'Sacramento Kings'}) RETURN t.inception",
+      "node_ids": [
+        5235
+      ],
+      "edge_ids": [],
+      "type": "point"
+    }
+  },
+  {
+    "qid": "2db39307-2ed6-48ea-a957-67ab7125ffae",
+    "question": "When was Cleveland Cavaliers established?",
+    "answer": "1970",
+    "provenance_graph": {
+      "cypher": "MATCH (t:Team {name: 'Cleveland Cavaliers'}) RETURN t.inception AS inception",
+      "node_ids": [
+        5208
+      ],
+      "edge_ids": [],
+      "type": "point"
+    }
+  },
+  {
+    "qid": "a42d0939-ec54-4f5a-abda-d885d1ebffca",
+    "question": "Does, Jack Thompson, born 1946-03-26, plays the position of point guard?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Jack Thompson', date_of_birth: '26 March 1946'})-[r:playsPosition]->(pos:Position {name: 'point guard'}) RETURN p.name",
+      "node_ids": [
+        2716,
+        5471
+      ],
+      "edge_ids": [
+        13690
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "1096eb2b-e409-4a14-b6a4-11356543eea9",
+    "question": "When did Tim Duncan (whose position is power forward) win the NBA Rookie of the Year Award?",
+    "answer": "1998",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Tim Duncan'})-[r1:playsPosition]->(pos:Position {name: 'power forward'}), (p)-[r2:receivesAward]->(a:Award {name: 'NBA Rookie of the Year Award'}) RETURN r2.time",
+      "node_ids": [
+        5248,
+        6505,
+        5470
+      ],
+      "edge_ids": [
+        18739,
+        1998
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "8fb38221-d40e-4806-909c-63cded192f52",
+    "question": "Does basketball's Michael McDonald tip the scales at over 170 lbs?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player) WHERE p.name = 'Michael McDonald' RETURN p.mass",
+      "node_ids": [
+        2230
+      ],
+      "edge_ids": [],
+      "type": "point"
+    }
+  },
+  {
+    "qid": "884e9cab-2a76-4ae7-895a-8cfd7e0e7029",
+    "question": "Is Allen Iverson a member of the Memphis Grizzlies?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Allen Iverson'})-[r:playsFor]->(t:Team {name: 'Memphis Grizzlies'}) RETURN r",
+      "node_ids": [
+        5220,
+        6511
+      ],
+      "edge_ids": [
+        2665
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "553b1996-ffc1-4c50-9059-9b12c33c24a3",
+    "question": "Was the basketball team with the member Chuck Connors, who died of natural causes, founded prior to 1961?",
+    "answer": "yes",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Chuck Connors'})-[:playsFor]->(t:Team) RETURN t.name, t.inception",
+      "node_ids": [
+        1378,
+        5229
+      ],
+      "edge_ids": [],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "3d3966e7-0253-43a8-b8b6-379b1f25d53d",
+    "question": "Who weighs less, Kareem Abdul-Jabbar or Johnny Green (the one that is a member of Washington Wizards)?",
+    "answer": "Johnny Green",
+    "provenance_graph": {
+      "cypher": "MATCH (p1:Player {name: 'Kareem Abdul-Jabbar'}), (p2:Player)-[:playsFor]->(t:Team {name: 'Washington Wizards'}), (p2 {name: 'Johnny Green'}) RETURN p1.name AS Player1, p1.mass AS Mass1, p2.name AS Player2, p2.mass AS Mass2 ORDER BY toInteger(p1.mass), toInteger(p2.mass) LIMIT 1",
+      "node_ids": [
+        5204,
+        6366,
+        791
+      ],
+      "edge_ids": [],
+      "type": "sub-graph"
+    }
+  },
+  {
+    "qid": "d59b28da-354d-42d1-bb24-406afc2d88e0",
+    "question": "How much does Michael Jackson (the one whose date of birth is 1964-07-13) weigh?",
+    "answer": "183 pound",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Michael Jackson', date_of_birth: '13 July 1964'}) RETURN p.mass AS weight",
+      "node_ids": [
+        2201
+      ],
+      "edge_ids": [],
+      "type": "point"
+    }
+  },
+  {
+    "qid": "cb80e444-6390-4c3d-b95b-d0609e4800f1",
+    "question": "When did Kevin Garnett join the Minnesota Timberwolves?",
+    "answer": "1995",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Kevin Garnett'})-[r:playsFor]->(t:Team {name: 'Minnesota Timberwolves'}) RETURN r.start_time AS join_date",
+      "node_ids": [
+        6384,
+        5221
+      ],
+      "edge_ids": [
+        2729
+      ],
+      "type": "path"
+    }
+  },
+  {
+    "qid": "2fa77d01-95e4-4832-a14c-956a62f635b0",
+    "question": "Tell me the basketball team that has Michael McDonald (who is 208 centimetres in height) as a member.",
+    "answer": "Charlotte Hornets",
+    "provenance_graph": {
+      "cypher": "MATCH (p:Player {name: 'Michael McDonald'})-[:playsFor]->(t:Team) where p.height = '208 centimetre' OR p.height = '2.08 metre' RETURN DISTINCT t.name",
+      "node_ids": [
+        5237,
+        2230
+      ],
+      "edge_ids": [],
+      "type": "path"
+    }
+  }
+]
