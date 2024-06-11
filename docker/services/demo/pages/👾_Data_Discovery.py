@@ -512,7 +512,7 @@ def get_graph_retriever():
 
 @st.cache_resource()
 def get_doc_index(emb_model):
-    persist_dir = os.path.join("data/toolbox/indices", 'doc_default_' + emb_model.replace('/', '--'))
+    persist_dir = os.path.join("data/indices", 'doc_default_' + emb_model.replace('/', '--'))
     if not (os.path.exists(persist_dir) and os.listdir(persist_dir)):
         raise ValueError(f"Index not found in {persist_dir}")
     storage_context = StorageContext.from_defaults(persist_dir=persist_dir)
@@ -524,12 +524,12 @@ def get_doc_index(emb_model):
 def get_table_query_engine(
         emb_model, table_top_k
 ):
-    persist_dir = os.path.join("data/toolbox/indices", 'table_default_' + emb_model.replace('/', '--'))
-    user = 'yanlin'
-    password = '444Castro'
-    db = 'lake'
-    conn_str = f'postgresql+psycopg://{user}:{password}@postgres/{db}'
-    schema = 'wikisql'
+    persist_dir = os.path.join("data/indices", 'table_default_' + emb_model.replace('/', '--'))
+    user = os.environ.get("PGUSER")
+    db = 'nba'
+    # conn_str = f'postgresql+psycopg://{user}:{password}@postgres/{db}'
+    conn_str = f'postgresql+psycopg://{user}@postgres/{db}'
+    schema = 'nba_wikisql'
     engine = create_engine(conn_str)
     sql_database = SQLDatabase(engine, schema=schema)
     table_node_mapping = SQLTableNodeMapping(sql_database)
@@ -706,9 +706,9 @@ def run_data_discovery(question: str, llm: str, emb_model: str, doc_top_k: int,
             if summary_type == 'Human':
                 summary = HUMAN_SUMMARY
             elif summary_type == 'Complex':
-                summary = load_json('data/benchmark/modality_summary_complex.json')
+                summary = load_json('data/cmdbench/modality_summary_complex.json')
             elif summary_type == 'Basic':
-                summary = load_json('data/benchmark/modality_summary_basic.json')
+                summary = load_json('data/cmdbench/modality_summary_basic.json')
             else:
                 raise ValueError(f"Summary type {summary_type} not supported")
 
@@ -1009,7 +1009,7 @@ def load_questions():
     questions = []
     q2src = {}
     for src in ['graph', 'doc', 'table']:
-        with open(f'data/benchmark/q_{src}.json') as f:
+        with open(f'data/cmdbench/q_{src}.json') as f:
             q = json.load(f)
             questions.extend([d['question'] for d in q])
             for d in q:
@@ -1057,6 +1057,9 @@ def main():
     #             unsafe_allow_html=True)
 
     with st.sidebar:
+        openai_api_key = st.text_input("OpenAI API Key", type="password")
+        os.environ["OPENAI_API_KEY"] = openai_api_key
+
         llm = st.selectbox("LLM", ["gpt-4o", "gpt-4-turbo-preview", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"])
         temperature = st.select_slider("Temperature", options=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
 
@@ -1215,6 +1218,13 @@ def main():
 
     if not any([question, example_lebron_stephen, example_big_ticker, example_mvp,
                 example_kevin]):
+        st.stop()
+
+    if not openai_api_key:
+        if len(st.session_state.messages) == 0:
+            _bottom.error("Please enter your OpenAI API Key in the sidebar.")
+        else:
+            st.error("Please enter your OpenAI API Key in the sidebar.")
         st.stop()
 
     if question:
