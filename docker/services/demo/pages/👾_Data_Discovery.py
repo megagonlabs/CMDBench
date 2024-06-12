@@ -545,18 +545,17 @@ def get_tables(table_names: List[str]) -> List[Table]:
     table_ids = [t[2:].replace('_', '-') for t in table_names]
     mongo_client = MongoClient("mongodb://mongo:27017/")
     tables = []
-    for collection in ('wiki-tables_train', 'wiki-tables_dev', 'wiki-tables_test'):
-        db = mongo_client['nba-datalake'][collection]
-        docs = db.find({'id': {'$in': table_ids}})
-        for doc in docs:
-            table = Table(
-                table_id=doc['id'],
-                page_title=doc['page_title'],
-                section_title=doc['section_title'],
-                columns=doc['header'],
-                rows=doc['rows']
-            )
-            tables.append(table)
+    db = mongo_client['nba-datalake']['wiki-tables']
+    docs = db.find({'id': {'$in': table_ids}})
+    for doc in docs:
+        table = Table(
+            table_id=doc['id'],
+            page_title=doc['page_title'],
+            section_title=doc['section_title'],
+            columns=doc['header'],
+            rows=doc['rows']
+        )
+        tables.append(table)
     return tables
 
 
