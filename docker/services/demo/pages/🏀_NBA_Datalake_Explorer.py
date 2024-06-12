@@ -370,7 +370,7 @@ def main():
     st.markdown("""
         <style>
                .block-container {
-                    padding-top: 2rem;
+                    padding-top: 3rem;
                     padding-bottom: 0rem;
                     padding-left: 2rem;
                     padding-right: 2rem;
