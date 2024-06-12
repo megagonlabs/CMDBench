@@ -16,6 +16,7 @@ services:
       PGUSER: $PGUSER
 
   postgres:
+    container_name: postgres
     image: postgres:16.3
     volumes:
       - ../services/postgres/sh:/docker-entrypoint-initdb.d
@@ -41,6 +42,7 @@ services:
       NEO4J_AUTH: $NEO4J_USERNAME/$NEO4J_PASSWORD
 
   mongo:
+    container_name: mongo
     image: mongo:5.0.27
     ports:
       - 27017:27017
@@ -48,17 +50,3 @@ services:
     volumes:
       - ../services/mongo/sh:/docker-entrypoint-initdb.d
       - ../services/mongo/data:/init
-
-  #    cmdbench:
-  #        container_name: cmdbench
-  #        build:
-  #            context: ../../
-  #            dockerfile: ./docker/services/cmdbench/Dockerfile
-  #        working_dir: /cmdbench
-  #        depends_on:
-  #            - postgres
-  #        environment:
-  #            PGHOST: postgres
-  #            PGUSER: $PGUSER
-  #            PGDATABASE_NBA: $PGDATABASE_NBA
-  #        command: bash -c "bash ./scripts/wait-for-postgres.sh pytest"
