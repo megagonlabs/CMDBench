@@ -15,7 +15,6 @@ services:
 
   neo4j:
     container_name: neo4j
-    image: megagonlabs/cmdbench-neo4j:latest
     build:
       context: ../../
       dockerfile: ./docker/services/neo4j/Dockerfile
