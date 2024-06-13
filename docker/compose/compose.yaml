@@ -1,20 +1,4 @@
 services:
-  demo:
-    container_name: demo
-    build:
-      context: ../../
-      dockerfile: ./docker/services/demo/Dockerfile
-    depends_on:
-      - postgres
-      - neo4j
-      - mongo
-    ports:
-      - 4242:4242
-    environment:
-      NEO4J_USERNAME: $NEO4J_USERNAME
-      NEO4J_PASSWORD: $NEO4J_PASSWORD
-      PGUSER: $PGUSER
-
   postgres:
     container_name: postgres
     image: postgres:16.3

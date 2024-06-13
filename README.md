@@ -1,6 +1,12 @@
 # CMDBench
 The public repos of the CMDBench paper
 
+## Usage
+
+
+
+### 
+
 ## a few useful docker commands
 ```
 $ docker compose -f docker/compose/compose.yaml up --build # rebuild and start all services
