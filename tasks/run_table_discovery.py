@@ -58,7 +58,7 @@ def get_table_index(emb_model, index_type="default"):
 
     user = os.environ.get('PGUSER')
     db = 'nba'
-    conn_str = f'postgresql+psycopg://{user}:{password}@localhost/{db}'
+    conn_str = f'postgresql+psycopg://{user}@localhost/{db}'
     schema = 'nba_wikisql'
     engine = create_engine(conn_str)
     sql_database = SQLDatabase(engine, schema=schema)
@@ -127,6 +127,20 @@ def get_table_query_engine(
     return query_engine, object_retriever
 
 
+def parse_columns(sql_query: str) -> List[str]:
+    try:
+        return Parser(sql_query).columns
+    except Exception as e:
+        return []
+
+
+def parse_tables(sql_query: str) -> List[str]:
+    try:
+        return Parser(sql_query).tables
+    except Exception as e:
+        return []
+
+
 @trace_langfuse(name="table_discovery")
 def get_responses(engine, table_retriever, dataset) -> List[dict]:
     all_response = []
@@ -140,8 +154,8 @@ def get_responses(engine, table_retriever, dataset) -> List[dict]:
             'tables': {
                 'retrieved': table_names,
                 'sql': response.metadata['sql_query'].replace("\n", " "),
-                'sql_columns': Parser(response.metadata['sql_query']).columns,
-                'sql_tables': Parser(response.metadata['sql_query']).tables,
+                'sql_columns': parse_columns(response.metadata['sql_query']),
+                'sql_tables': parse_tables(response.metadata['sql_query']),
             }
         }
         all_response.append(d)
