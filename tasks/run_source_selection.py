@@ -119,9 +119,6 @@ def evaluate(all_response: List[dict]) -> dict:
     return res
 
 
-langfuse_callback_handler.flush()
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--inputs', default=["benchmark/test_qa/q_source.json"], nargs="+")
