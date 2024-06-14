@@ -126,6 +126,8 @@ python tasks/run_nl2cypher.py \
 }
 ```
 
+⚠️ The `node_ids` and `edge_ids` here are not meaningful as they are specific to the Neo4j instance. They will be overwritten by the nl2cypher pipeline during evaluation when generating the results.json.
+
 [benchmark/q_doc.json](./benchmark/q_doc.json) contains the document questions. Here is a sample:
 
 ```json
