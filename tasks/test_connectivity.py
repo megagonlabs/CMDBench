@@ -5,7 +5,10 @@ from pymongo import MongoClient
 
 
 def test_neo4j():
-    driver = GraphDatabase.driver('bolt://localhost:7687', auth=('neo4j', 'cmdbench'))
+    driver = GraphDatabase.driver(
+        'bolt://localhost:7687',
+        auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD'])
+    )
     with driver.session() as session:
         resp = session.run("MATCH (p:Player {name: 'LeBron James'}) RETURN p.name")
         resp = [record for record in resp]
@@ -23,7 +26,7 @@ def test_mongo():
 
 
 def test_postgres_select_nba_wikisql():
-    user = 'megagon'
+    user = os.environ['PGUSER']
     db = 'nba'
     host = 'localhost'
     conn_str = f'postgresql+psycopg://{user}@{host}/{db}'
