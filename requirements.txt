@@ -1,5 +1,20 @@
-pytest
-
-# table
+llama-index==0.10.44
+llama-index-llms-openai==0.1.22
+llama-index-graph-stores-neo4j==0.2.4
+llama-index-embeddings-huggingface==0.2.1
+llama-index-vector-stores-faiss
+llama-index-vector-stores-duckdb
+llama-index-retrievers-bm25
+llama-index-llms-openai-like
+langfuse
+duckdb
+faiss-cpu
+langchain
+langchain-openai
+sentence-transformers
+scikit-learn
+psycopg2-binary
+psycopg[binary,pool]
+sql-metadata
+pymongo
 sqlalchemy
-psycopg
