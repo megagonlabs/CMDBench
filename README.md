@@ -36,7 +36,7 @@ docker compose down
 
 ## Running Experiments
 
-### Depedencies
+### 1. Install dependencies
 
 Create a virtual environment:
 
@@ -51,7 +51,7 @@ Install the dependencies:
 pip install -r requirements.txt
 ```
 
-Set openai api key and environment variables in .bashrc:
+### 2. Set openai api key and database credentials in .bashrc:
 
 ```bash
 export OPENAI_API_KEY='your-api-key-here'
@@ -66,7 +66,7 @@ Test database connections:
 python tasks/test_connectivity.py
 ```
 
-### Experiment Pipelines
+### 3. Run experiment pipelines
 
 We implement experiment pipelines for each data discovery tasks. Each pipeline takes the data JSON file as input and
 outputs two JSON files:
@@ -79,8 +79,8 @@ Here is a full list of implemented pipelines:
 - [tasks/run_source_selection.py](tasks/run_source_selection.py) runs the source selection task.
     - Note: run [tasks/generate_modality_summary.py](tasks/generate_modality_summary.py) to generate the modality summary.
 - [tasks/run_nl2cypher.py](tasks/run_nl2cypher.py) runs the subgraph discovery task.
-- [tasks/run_doc_discovery.py](tasks/run_doc_discovery.py) runs the document discovery task.
 - [tasks/run_table_discovery.py](tasks/run_table_discovery.py) runs the table discovery task.
+- [tasks/run_doc_discovery.py](tasks/run_doc_discovery.py) runs the document discovery task.
 - [tasks/run_paragraph_discovery.py](tasks/run_paragraph_discovery.py) runs the paragraph discovery task.
 - [tasks/run_answer_gen_graph.py](tasks/run_answer_gen_graph.py) runs the answer generation task for graph questions.
 - [tasks/run_answer_gen_doc.py](tasks/run_answer_gen_doc.py) runs the answer generation task for document questions.
