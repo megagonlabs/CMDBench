@@ -1,12 +1,12 @@
 # CMDBench
 
-This is the public repository for the CMDBench paper. The repository contains the code for the CMDBench dataset and the code for running experiments.
+This is the public repository for the CMDBench benchmark, which aims to evaluate data discovery agents within compound AI systems such as [LllamaIndex](https://www.llamaindex.ai/) that operate on an enterprise's complex data landscape. The repository contains the scripts for preparing the CMDBench benchmark dataset and tasks as well as the data discovery testing suite introduced at the GUIDE-AI workshop at SIGMOD'24 (paper [here](https://dl.acm.org/doi/10.1145/3665601.3669846)).
 
-The core task we are focusing on is coars-to-fine "Data Discovery." The coarse grained data discovery methods
-essentially select the source (e.g., mongodb, postgresdb, neo4jdb) containing the relevant information to a query. The finer the
-granularity the finer the result of the discover method. For example, a fine-grained discovery for text, table, and
+The core task we are focusing on is "Data Discovery" at varying granularities within enterprise data. We define enterprise data as silos of information stored in various modalities (e.g., tables, graphs, and documents) and organized based on downstream requirements of different teams/projects in different repositories such as data lakes, data warehouses, and data lakehouses. The coarse-grained data discovery methods
+essentially select the repositories (e.g., mongodb, postgresdb, neo4jdb) containing the relevant information to a query. The finer the
+granularity, the finer the result of the discover method. For example, a fine-grained discovery for text, table, and
 graphs is finding candidate document(s), table(s), and sub-graph(s), respectively. The finest granularity is the exact
-source, e.g., paragraph in document, (row, column) in table, or (path, node) in graph.
+source, e.g., a paragraph in a document, (row, column) in a table, or (path, node) in a graph.
 
 
 ## Serving the NBA Datalake
