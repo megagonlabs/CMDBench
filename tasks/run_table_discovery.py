@@ -194,7 +194,7 @@ def evaluate(all_response: List[dict]) -> dict:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--inputs', default=["benchmark/test_qa/q_table.json"], nargs="+")
+    parser.add_argument('--inputs', default=["benchmark/q_table.json"], nargs="+")
     parser.add_argument('--output_dir', default='outputs/test_table_discovery/')
     parser.add_argument('--overwrite', action="store_true")
 

@@ -218,7 +218,7 @@ def evaluate(all_response: List[dict]) -> dict:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', default="graph", choices=["graph", "doc", "table", "all"])
-    parser.add_argument('--inputs', default=["benchmark/test_qa/q_doc.json"], nargs="+")
+    parser.add_argument('--inputs', default=["benchmark/q_doc.json"], nargs="+")
     parser.add_argument('--output_dir', default='outputs/test_paragraph_discovery/')
     parser.add_argument('--overwrite', action="store_true")
 

@@ -203,7 +203,7 @@ def evaluate(all_response: List[dict]) -> dict:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-q', '--question', default=None)
-    parser.add_argument('--inputs', default=["benchmark/test_qa/q_graph.json"], nargs="+")
+    parser.add_argument('--inputs', default=["benchmark/q_graph.json"], nargs="+")
     parser.add_argument('--output_dir', default='outputs/test_answer_gen_graph/')
     parser.add_argument('--overwrite', action="store_true")
     parser.add_argument('--print_graph_schema', action="store_true")
