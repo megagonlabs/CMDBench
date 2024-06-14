@@ -216,6 +216,10 @@ def evaluate(all_response: List[dict]) -> dict:
         edges_true = set(ground_truth_subgraphs[i]['edge_ids'])
         d['metric_edge_p'] = len(edges_pred & edges_true) / len(edges_pred) if edges_pred else 0.
         d['metric_edge_r'] = len(edges_pred & edges_true) / len(edges_true) if edges_true else 0.
+
+        # overwrite original node/edge ids
+        d['provenance_graph']['node_ids'] = ground_truth_subgraphs[i]['node_ids']
+        d['provenance_graph']['edge_ids'] = ground_truth_subgraphs[i]['edge_ids']
         res['responses'].append(d)
 
     metrics = ['accuracy', 'node_p', 'node_r', 'edge_p', 'edge_r']
