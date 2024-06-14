@@ -56,11 +56,10 @@ def get_table_index(emb_model, index_type="default"):
         Settings.embed_model = HuggingFaceEmbedding(emb_model)
     persist_dir = os.path.join("indices", 'table_' + index_type + '_' + emb_model.replace('/', '--'))
 
-    user = 'yanlin'
-    password = '444Castro'
-    db = 'lake'
+    user = os.environ.get('PGUSER')
+    db = 'nba'
     conn_str = f'postgresql+psycopg://{user}:{password}@localhost/{db}'
-    schema = 'wikisql'
+    schema = 'nba_wikisql'
     engine = create_engine(conn_str)
     sql_database = SQLDatabase(engine, schema=schema)
     table_node_mapping = SQLTableNodeMapping(sql_database)
@@ -68,7 +67,7 @@ def get_table_index(emb_model, index_type="default"):
     if not (os.path.exists(persist_dir) and os.listdir(persist_dir)):
         t0 = time.time()
         # connect the db
-        connection = psycopg2.connect("host=localhost dbname=lake port=5432 user=yanlin password=444Castro ")
+        connection = psycopg2.connect(f"host=localhost dbname=nba port=5432 user={user}")
         cursor = connection.cursor()
 
         # select query for table meta data
