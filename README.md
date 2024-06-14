@@ -51,11 +51,22 @@ Install the dependencies:
 pip install -r requirements.txt
 ```
 
-Setup openai api key in .bashrc:
+Set openai api key and environment variables in .bashrc:
 
 ```bash
 export OPENAI_API_KEY='your-api-key-here'
+export NEO4J_USERNAME=neo4j
+export NEO4J_PASSWORD=cmdbench
+export PGUSER=megagon
 ```
+
+Test database connections:
+
+```bash
+python tasks/test_connectivity.py
+```
+
+### Experiment Pipelines
 
 We implement experiment pipelines for each data discovery tasks. Each pipeline takes the data JSON file as input and
 outputs two JSON files:
