@@ -88,8 +88,16 @@ Here are a full list of implemented pipelines:
 Here is a sample command to run the source selection task:
 
 ```bash
-python tasks/run_source_selection.py --inputs benchmark/q_source.json \
+python tasks/run_source_selection.py \
   --modality_summary tasks/modality_summary_basic.json \
+  --llm gpt-3.5-turbo-0125 \
+  --output_dir outputs/exp0/
+```
+
+Here is a sample command to run the nl2cypher task:
+
+```bash
+python tasks/run_nl2cypher.py \
   --llm gpt-3.5-turbo-0125 \
   --output_dir outputs/exp0/
 ```
