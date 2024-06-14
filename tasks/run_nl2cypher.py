@@ -8,6 +8,7 @@ from llama_index.llms.openai_like import OpenAILike
 import logging
 import os
 import json
+from neo4j import GraphDatabase
 import copy
 import shutil
 import argparse
@@ -153,6 +154,36 @@ def get_all_responses(engine, dataset) -> List[dict]:
     return all_response
 
 
+def get_ground_truth_subgraphs(all_response):
+    cyphers = []
+    for d in all_response:
+        cyphers.append(d['provenance_graph']['cypher'])
+    driver = GraphDatabase.driver(
+        'bolt://localhost:7687',
+        auth=(os.environ['NEO4J_USERNAME'], os.environ['NEO4J_PASSWORD'])
+    )
+    res = []
+    with driver.session() as session:
+        for cypher in cyphers:
+            node_ids = set()
+            edge_ids = set()
+            cypher = re.sub(r"\bRETURN\b.*$", "RETURN *", cypher, flags=re.IGNORECASE)
+            result = session.run(cypher)
+            result = list(result)
+            for record in result:
+                for key, value in record.items():
+                    if hasattr(value, "id"):
+                        if hasattr(value, "start_node"):
+                            node_ids.add(value.start_node.id)
+                            node_ids.add(value.end_node.id)
+                            edge_ids.add(value.id)
+                        else:
+                            node_ids.add(value.id)
+            res.append({"cypher": cypher, "node_ids": list(node_ids), "edge_ids": list(edge_ids)})
+    assert len(res) == len(all_response), f"len(res)={len(res)}, len(all_response)={len(all_response)}"
+    return res
+
+
 def evaluate(all_response: List[dict]) -> dict:
     res = {
         'metrics': {
@@ -167,7 +198,9 @@ def evaluate(all_response: List[dict]) -> dict:
         'responses': []
     }
 
-    for d in all_response:
+    ground_truth_subgraphs = get_ground_truth_subgraphs(all_response)
+
+    for i, d in enumerate(all_response):
         d = copy.deepcopy(d)
 
         # Compute accuracy
@@ -175,12 +208,12 @@ def evaluate(all_response: List[dict]) -> dict:
 
         # Compute retrieval metrics
         nodes_pred = set(d['model_provenance']['graph']['node_ids'])
-        nodes_true = set(d['provenance_graph']['node_ids'])
+        nodes_true = set(ground_truth_subgraphs[i]['node_ids'])
         assert len(nodes_true) > 0
         d['metric_node_p'] = len(nodes_pred & nodes_true) / len(nodes_pred) if nodes_pred else 0.
         d['metric_node_r'] = len(nodes_pred & nodes_true) / len(nodes_true) if nodes_true else 0.
         edges_pred = set(d['model_provenance']['graph']['edge_ids'])
-        edges_true = set(d['provenance_graph']['edge_ids'])
+        edges_true = set(ground_truth_subgraphs[i]['edge_ids'])
         d['metric_edge_p'] = len(edges_pred & edges_true) / len(edges_pred) if edges_pred else 0.
         d['metric_edge_r'] = len(edges_pred & edges_true) / len(edges_true) if edges_true else 0.
         res['responses'].append(d)
