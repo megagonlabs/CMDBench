@@ -71,7 +71,7 @@ def get_table_index(emb_model, index_type="default"):
         cursor = connection.cursor()
 
         # select query for table meta data
-        cursor.execute("SELECT id, page_title, section_title, caption FROM wikisql_mongo.nba_cleaning")
+        cursor.execute("SELECT id, page_title, section_title, caption FROM metadata.nba_context")
         query_result = cursor.fetchall()
 
         # create df_meta
@@ -81,7 +81,7 @@ def get_table_index(emb_model, index_type="default"):
 
         # Execute the SQL query to fetch the whole table list
         cursor.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema ='wikisql' ORDER BY table_name;")
+            "SELECT table_name FROM information_schema.tables WHERE table_schema ='nba_wikisql' ORDER BY table_name;")
         id_list = cursor.fetchall()
         id_list = [id[0][2:].replace('_', '-') for id in id_list]  # change table name to 1-10015132-1
 
