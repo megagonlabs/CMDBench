@@ -18,3 +18,7 @@ When you are done, you can stop with `Ctrl+C` and then run:
 ```bash
 docker compose down
 ```
+
+### Notes:
+- You can find the database credentials in [docker/compose/.env](docker/compose/.env)
+- If there are port conflicts, you can change the ports in [docker/compose/.env](docker/compose/.env)
