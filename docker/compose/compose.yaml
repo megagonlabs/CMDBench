@@ -6,7 +6,7 @@ services:
       - ../services/postgres/sh:/docker-entrypoint-initdb.d
       - ../services/postgres/sql:/init
     ports:
-      - 5432:5432 # to allow connection to Postgres outside of the container
+      - $PGPORT:5432 # to allow connection to Postgres outside of the container
     environment:
       POSTGRES_USER: $PGUSER
       POSTGRES_HOST_AUTH_METHOD: trust
@@ -20,8 +20,8 @@ services:
       context: ../../
       dockerfile: ./docker/services/neo4j/Dockerfile
     ports:
-      - 7687:7687
-      - 7474:7474
+      - $NEO4J_BOLT_PORT:7687
+      - $NEO4J_HTTP_PORT:7474
     environment:
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
       NEO4J_AUTH: $NEO4J_USERNAME/$NEO4J_PASSWORD
@@ -30,7 +30,7 @@ services:
     container_name: mongo
     image: mongo:5.0.27
     ports:
-      - 27017:27017
+      - $MONGO_PORT:27017
     command: [ "mongod", "--noauth" ]
     volumes:
       - ../services/mongo/sh:/docker-entrypoint-initdb.d
