@@ -74,7 +74,7 @@ outputs two JSON files:
 1. `responses.json` contains the outputs of the data discovery models.
 2. `result.json` additionally includes the evaluation metrics.
 
-Here are a full list of implemented pipelines:
+Here is a full list of implemented pipelines:
 
 - [tasks/run_source_selection.py](tasks/run_source_selection.py) runs the source selection task.
     - Note: run [tasks/generate_modality_summary.py](tasks/generate_modality_summary.py) to generate the modality summary.
@@ -91,7 +91,7 @@ Here is a sample command to run the source selection task:
 python tasks/run_source_selection.py \
   --modality_summary tasks/modality_summary_basic.json \
   --llm gpt-3.5-turbo-0125 \
-  --output_dir outputs/exp0/
+  --output_dir outputs/ss/
 ```
 
 Here is a sample command to run the nl2cypher task:
@@ -99,7 +99,7 @@ Here is a sample command to run the nl2cypher task:
 ```bash
 python tasks/run_nl2cypher.py \
   --llm gpt-3.5-turbo-0125 \
-  --output_dir outputs/exp0/
+  --output_dir outputs/nl2cypher/
 ```
 
 
