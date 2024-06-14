@@ -489,7 +489,7 @@
     "question": "Was the basketball team with the member Chuck Connors, who died of natural causes, founded prior to 1961?",
     "answer": "yes",
     "provenance_graph": {
-      "cypher": "MATCH (p:Player {name: 'Chuck Connors'})-[:playsFor]->(t:Team) RETURN t.name, t.inception",
+      "cypher": "MATCH (p:Player {name: 'Chuck Connors'})-[r:playsFor]->(t:Team) RETURN t.name, t.inception",
       "node_ids": [
         1378,
         5229
@@ -503,7 +503,7 @@
     "question": "Who weighs less, Kareem Abdul-Jabbar or Johnny Green (the one that is a member of Washington Wizards)?",
     "answer": "Johnny Green",
     "provenance_graph": {
-      "cypher": "MATCH (p1:Player {name: 'Kareem Abdul-Jabbar'}), (p2:Player)-[:playsFor]->(t:Team {name: 'Washington Wizards'}), (p2 {name: 'Johnny Green'}) RETURN p1.name AS Player1, p1.mass AS Mass1, p2.name AS Player2, p2.mass AS Mass2 ORDER BY toInteger(p1.mass), toInteger(p2.mass) LIMIT 1",
+      "cypher": "MATCH (p1:Player {name: 'Kareem Abdul-Jabbar'}), (p2:Player {name: 'Johnny Green'})-[r:playsFor]->(t:Team {name: 'Washington Wizards'}) RETURN p1.name AS Player1, p1.mass AS Mass1, p2.name AS Player2, p2.mass AS Mass2 ORDER BY toInteger(p1.mass), toInteger(p2.mass) LIMIT 1",
       "node_ids": [
         5204,
         6366,
@@ -547,7 +547,7 @@
     "question": "Tell me the basketball team that has Michael McDonald (who is 208 centimetres in height) as a member.",
     "answer": "Charlotte Hornets",
     "provenance_graph": {
-      "cypher": "MATCH (p:Player {name: 'Michael McDonald'})-[:playsFor]->(t:Team) where p.height = '208 centimetre' OR p.height = '2.08 metre' RETURN DISTINCT t.name",
+      "cypher": "MATCH (p:Player {name: 'Michael McDonald'})-[r:playsFor]->(t:Team) where p.height = '208 centimetre' OR p.height = '2.08 metre' RETURN DISTINCT t.name",
       "node_ids": [
         5237,
         2230
