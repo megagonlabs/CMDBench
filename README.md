@@ -11,12 +11,21 @@ source, e.g., a paragraph in a document, (row, column) in a table, or (path, nod
 
 ## Serving the NBA Datalake
 
-Run the following commands to start the CMDBench datalake.
+First clone the repository and navigate to the docker-compose directory:
 
 ```bash
 git clone https://github.com/rit-git/cmdbench.git
 cd cmdbench/docker/compose
-docker compose up
+```
+
+Then run the following command to start the NBA datalake:
+
+```bash
+# to run in foreground
+docker compose up 
+
+# to run in detached mode
+docker compose up -d
 ```
 
  The following databases will be exposed at various ports:
@@ -32,6 +41,7 @@ docker compose down
 ### Notes:
 - You can find the database credentials in [docker/compose/.env](docker/compose/.env)
 - If there are port conflicts, you can change the ports in [docker/compose/.env](docker/compose/.env)
+- For older versions of docker-compose, you may need to use `docker-compose` instead of `docker compose`
 
 
 ## Running Experiments
