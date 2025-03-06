@@ -14,7 +14,7 @@ source, e.g., a paragraph in a document, (row, column) in a table, or (path, nod
 First clone the repository and navigate to the docker-compose directory:
 
 ```bash
-git clone https://github.com/rit-git/cmdbench.git
+git clone https://github.com/megagonlabs/cmdbench.git
 cd cmdbench/docker/compose
 ```
 
