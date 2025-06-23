@@ -1,5 +1,7 @@
 # CMDBench
 
+⚠️ We have a new version of the CMDBench NBA datalake at [🤗 Huggingface](https://huggingface.co/datasets/megagonlabs/cmdbench-nba), which was updated from the original CMDBench datalake with higher quality data (up to Feburary 2025). The major updates include replacing the 1k web tables with an actual Postgres database, and updating the Neo4j graph with cleaner and more diverse data (e.g. numeric values, dates and array). It doesn't have the questions yet.
+
 This is the public repository for the CMDBench benchmark, which aims to evaluate data discovery agents within compound AI systems such as [LllamaIndex](https://www.llamaindex.ai/) that operate on an enterprise's complex data landscape. The repository contains the scripts for preparing the CMDBench benchmark dataset and tasks as well as the data discovery testing suite introduced at the GUIDE-AI workshop at SIGMOD'24 (paper [here](https://dl.acm.org/doi/10.1145/3665601.3669846)).
 
 The core task we are focusing on is "Data Discovery" at varying granularities within enterprise data. We define enterprise data as silos of information stored in various modalities (e.g., tables, graphs, and documents) and organized based on downstream requirements of different teams/projects in different repositories such as data lakes, data warehouses, and data lakehouses. The coarse-grained data discovery methods
